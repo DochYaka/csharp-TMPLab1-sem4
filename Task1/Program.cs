@@ -1,11 +1,11 @@
-using MyConsole2;
+using Task1;
 using System;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection.PortableExecutable;
 using System.Text;
 
-namespace MyConsole2
+namespace Task1
 {
     /// <summary>
     /// Главный класс программы с обработкой командной строки
@@ -14,7 +14,7 @@ namespace MyConsole2
     {
         static void Main(string[] args)
         {
-            MyConsole.StartConsole();
+            Task1.StartConsole();
         }
 
         //static void ShowHelp()
