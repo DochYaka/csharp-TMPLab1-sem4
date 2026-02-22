@@ -2,11 +2,11 @@
 
 namespace Task1
 {
-    public class Task1
+    public class MyConsole
     {
         private const string startCommandLine = "PS>";
         private const string paramNotFoundExceptionText = "Не удалось найти подходящий параметр!";
-        private const string paramNotExistsExceptionText = "У данной команды отсутствуют параметры!"; 
+        private const string paramNotExistsExceptionText = "У данной команды отсутствуют параметры!";
         private const string commandNotFoundExceptionText = "Команда не найдена!";
 
         public static void StartConsole()
@@ -18,7 +18,7 @@ namespace Task1
                 Console.Write(startCommandLine);
                 commandLineText = Console.ReadLine();
 
-                if (commandLineText == null || commandLineText == "") 
+                if (commandLineText == null || commandLineText == "")
                     continue;
                 var commandText = commandLineText.Split();
                 try
@@ -79,7 +79,7 @@ namespace Task1
                             break;
                         default:
                             throw new ArgumentException(commandNotFoundExceptionText);
-                            
+
                     }
                 }
                 catch (NotImplementedException)
@@ -88,7 +88,7 @@ namespace Task1
                     Console.WriteLine("Команда разрабатывается!");
                     Console.ResetColor();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Ошибка: " + e.Message);
@@ -108,7 +108,7 @@ namespace Task1
 
         private bool CheckFilename(string filename)
         {
-            if(filename.EndsWith(".prd") && filename.Length <= 16) 
+            if (filename.EndsWith(".prd") && filename.Length <= 16)
                 return true;
             return false;
         }

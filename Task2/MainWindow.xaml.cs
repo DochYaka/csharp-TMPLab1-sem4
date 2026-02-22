@@ -17,10 +17,12 @@ namespace Task2
     /// </summary>
     public partial class MainWindow : Window
     {
+        private FileManager? _fileManager;
+
+
         public MainWindow()
         {
             InitializeComponent();
-            
         }
 
         private void OpenFile_Click(object sender, RoutedEventArgs e)
@@ -30,7 +32,9 @@ namespace Task2
 
         private void ComponentList_Click(object sender, RoutedEventArgs e)
         {
-            var componentWindow = new ComponentWindow() { Owner = this };
+            var fileManager = FileManager.CreateFiles("comp.dat", "spec.dat");
+
+            var componentWindow = new ComponentWindow(fileManager) { Owner = this };
             componentWindow.Show();
         }
 
