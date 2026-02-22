@@ -16,15 +16,20 @@
         <StackPanel>
             
             <WrapPanel>
-                <Button Width="160" Height="30" FontSize="20" Content="Добавить" Click="Add_Click"/>
+                <Button Width="160" Height="30"
+                        FontSize="20" Content="Добавить" Click="Add_Click"/>
 
-                <Button Width="160" Height="30" FontSize="20" Content="Изменить" Click="Edit_Click"/>
+                <Button Width="160" Height="30"
+                        FontSize="20" Content="Изменить" Click="Edit_Click"/>
 
-                <Button Width="160" Height="30" FontSize="20" Content="Отменить" Click="Cancel_Click"/>
+                <Button Width="160" Height="30"
+                        FontSize="20" Content="Отменить" Click="Cancel_Click"/>
 
-                <Button Width="160" Height="30" FontSize="20" Content="Сохранить" Click="Save_Click"/>
+                <Button Width="160" Height="30"
+                        FontSize="20" Content="Сохранить" Click="Save_Click"/>
 
-                <Button Width="160" Height="30" FontSize="20" Content="Удалить" Click="Delete_Click"/>
+                <Button Width="160" Height="30"
+                        FontSize="20" Content="Удалить" Click="Delete_Click"/>
             </WrapPanel>
 
             <ListView>
