@@ -5,8 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Task2"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Многосвязные списки"
+        Height="Auto"
+        Width="800"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen">
     <Grid>
+        <WrapPanel>
+            <Button Width="150" Height="35" FontSize="20" Content="Открыть" Click="OpenFile_Click"/>
 
+            <Button Width="150" Height="35" FontSize="20" Content="Компоненты" Click="ComponentList_Click"/>
+
+            <Button Width="150" Height="35" FontSize="20" Content="Спецификация" Click="SpecificationList_Click"/>
+        </WrapPanel>
     </Grid>
 </Window>

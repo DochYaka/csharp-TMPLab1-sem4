@@ -22,5 +22,22 @@ namespace Task2
             InitializeComponent();
             
         }
+
+        private void OpenFile_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void ComponentList_Click(object sender, RoutedEventArgs e)
+        {
+            var componentWindow = new ComponentWindow() { Owner = this };
+            componentWindow.Show();
+        }
+
+        private void SpecificationList_Click(object sender, RoutedEventArgs e)
+        {
+            var specificationWindow = new SpecificationWindow() { Owner = this };
+            specificationWindow.Show();
+        }
     }
 }
