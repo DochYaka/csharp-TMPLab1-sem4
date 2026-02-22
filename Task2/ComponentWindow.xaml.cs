@@ -30,6 +30,9 @@ namespace Task2
         public ComponentWindow(FileManager fileManager)
         {
             InitializeComponent();
+
+            fileManager = FileManager.CreateFiles("comp.dat", "spec.dat");
+
             _fileManager = fileManager;
 
             Components = new ObservableCollection<MyComponent>(
@@ -80,6 +83,57 @@ namespace Task2
                 MyComponent component = new(text, type);
                 _fileManager.AddComponentToComponentList(component);
                 Components.Add(component);
+
+                //if (ComponentListView.SelectedItem == null)
+                //{
+                //    var text = NameTextBox.Text;
+
+                //    if (string.IsNullOrEmpty(text))
+                //    {
+                //        MessageBox.Show("Введите наименование", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                //        return;
+                //    }
+                //    if (TypeComboBox.SelectedItem == null)
+                //    {
+                //        MessageBox.Show("Выберите тип", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                //        return;
+                //    }
+
+                //    var type = (ComponentType)TypeComboBox.SelectedItem;
+
+                //    MyComponent component = new(text, type);
+                //    _fileManager.AddComponentToComponentList(component);
+                //    Components.Add(component);
+                //}
+                //else
+                //{
+                //    var selectedComponent = (MyComponent)ComponentListView.SelectedItem;
+
+                //    var text = NameTextBox.Text;
+
+                //    if (string.IsNullOrEmpty(text))
+                //    {
+                //        MessageBox.Show("Введите наименование", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                //        return;
+                //    }
+                //    if (TypeComboBox.SelectedItem == null)
+                //    {
+                //        MessageBox.Show("Выберите тип", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                //        return;
+                //    }
+
+                //    var type = (ComponentType)TypeComboBox.SelectedItem;
+
+                //    MyComponent maincomponent = new(text, type);
+                //    _fileManager.AddComponentToComponentList(maincomponent);
+                //    Components.Add(maincomponent);
+
+                //    _fileManager.AddComponentToSpecification(selectedComponent.ComponentName, text);
+
+                //    MyComponent component = new(text, type);
+                //    selectedComponent.Children.Add(component);
+                //}
+
             }
             catch (Exception ex)
             {
@@ -116,12 +170,12 @@ namespace Task2
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
-
+            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-
+            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)

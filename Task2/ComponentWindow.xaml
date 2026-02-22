@@ -18,23 +18,23 @@
             
             <WrapPanel>
                 <Button Width="160" Height="30"
-                        FontSize="20" Content="Добавить"
+                        Content="Добавить"
                         Click="Add_Click" x:Name="AddButton"/>
 
                 <Button Width="160" Height="30"
-                        FontSize="20" Content="Изменить"
+                        Content="Изменить"
                         Click="Edit_Click" x:Name="EditButton" IsEnabled="False"/>
 
                 <Button Width="160" Height="30"
-                        FontSize="20" Content="Отменить"
+                        Content="Отменить"
                         Click="Cancel_Click" x:Name="CancelButton" IsEnabled="False"/>
 
                 <Button Width="160" Height="30"
-                        FontSize="20" Content="Сохранить"
+                        Content="Сохранить"
                         Click="Save_Click" x:Name="SaveButton"/>
 
                 <Button Width="160" Height="30"
-                        FontSize="20" Content="Удалить"
+                        Content="Удалить"
                         Click="Delete_Click" x:Name="DeleteButton" IsEnabled="False"/>
             </WrapPanel>
 

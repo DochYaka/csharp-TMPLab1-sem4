@@ -5,8 +5,30 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Task2"
         mc:Ignorable="d"
-        Title="SpecificationWindow" Height="450" Width="800">
+        Title="Спецификация"
+        FontSize="20"
+        Height="300"
+        Width="auto"
+        WindowStartupLocation="CenterScreen">
     <Grid>
-        
+        <StackPanel>
+            
+            <WrapPanel>
+                <TextBox Margin="10, 5, 0, 5" Width="350"/>
+
+                <Button Margin="10, 5, 10, 5" Width="120"
+                        Content="Найти"
+                        Click="Search_Click"/>
+            </WrapPanel>
+
+            <TreeView ItemsSource="{Binding Components}">
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding ComponentName}"/>
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            
+        </StackPanel>
     </Grid>
 </Window>

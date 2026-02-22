@@ -1,4 +1,5 @@
-﻿using System.Xml.Linq;
+﻿using System.Collections.ObjectModel;
+using System.Xml.Linq;
 
 namespace Library
 {
@@ -8,6 +9,9 @@ namespace Library
     {
         public ComponentType ComponentType { get; private set; } = type;
         public string ComponentName { get; set; } = name;
+
+        //public ObservableCollection<MyComponent> Children { get; set; }
+        //    = new ObservableCollection<MyComponent>();
 
         public override int GetHashCode()
         {

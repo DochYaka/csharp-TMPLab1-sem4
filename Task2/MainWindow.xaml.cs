@@ -27,20 +27,18 @@ namespace Task2
 
         private void OpenFile_Click(object sender, RoutedEventArgs e)
         {
-
+            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void ComponentList_Click(object sender, RoutedEventArgs e)
         {
-            var fileManager = FileManager.CreateFiles("comp.dat", "spec.dat");
-
-            var componentWindow = new ComponentWindow(fileManager) { Owner = this };
+            var componentWindow = new ComponentWindow(_fileManager) { Owner = this };
             componentWindow.Show();
         }
 
         private void SpecificationList_Click(object sender, RoutedEventArgs e)
         {
-            var specificationWindow = new SpecificationWindow() { Owner = this };
+            var specificationWindow = new SpecificationWindow(_fileManager) { Owner = this };
             specificationWindow.Show();
         }
     }

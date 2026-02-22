@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using Library;
 
 namespace Task2
 {
@@ -22,6 +23,11 @@ namespace Task2
         public SpecificationWindow()
         {
             InitializeComponent();
+        }
+
+        private void Search_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }
