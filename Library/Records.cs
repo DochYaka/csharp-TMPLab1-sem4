@@ -10,8 +10,6 @@ namespace Library
         protected const int _deletionBitSize = 1;
         protected const int _nextRecordPtrSize = 4;
 
-        public Record? NextRecord { get; set; }
-
         public int NextRecordPtr { get; set; } // Указатель на следующую запись
         public bool IsDeleted { get; set; } // 0 - активно, 1 - удалено
 
@@ -43,7 +41,7 @@ namespace Library
 
     public abstract class Record<T> : Record where T : Record
     {
-        public new T? NextRecord { get; set; }
+        public T? NextRecord { get; set; }
     }
 
     public abstract class Header
@@ -55,8 +53,6 @@ namespace Library
         {
             get => _freeAreaPtrSize + _firstRecordPtrSize;
         }
-
-        public Record? FirstRecord { get; set; }
 
         public int FirstRecordPtr { get; set; }
         public int FreeAreaPtr { get; set; }
@@ -84,7 +80,7 @@ namespace Library
 
     public abstract class Header<T> : Header where T : Record
     {
-        public new T? FirstRecord { get; set; }
+        public T? FirstRecord { get; set; }
     }
 
     /// <summary>
@@ -305,25 +301,26 @@ namespace Library
     {
         private const int _componentRecordPtrSize = 4;
         private const int _quantitySize = 2;
-        private const int _parentComponentRecordPtrSize = 4;
+        private const int _specificationNextPtrSize = 4;
 
         public ComponentRecord? ComponentRecord { get; set; }
+        public SpecificationRecord? SpecificationNext { get; set; }
 
-        public int ParentComponentRecordPtr { get; set; }
         public int ComponentRecordPtr { get; set; } // Указатель на запись в списке изделий
         public ushort Quantity { get; set; } // Кратность вхождения
+        public int SpecificationNextPtr { get; set; }
 
 
         public SpecificationRecord(ushort quantity = 2) : base()
         {
             ComponentRecordPtr = -1;
             Quantity = quantity;
-            ParentComponentRecordPtr = -1;
+            SpecificationNextPtr = -1;
         }
 
         public override int GetTotalSize()
         {
-            return _parentComponentRecordPtrSize * Quantity + base.GetTotalSize() + _componentRecordPtrSize + _quantitySize;
+            return base.GetTotalSize() + _componentRecordPtrSize + _quantitySize + _specificationNextPtrSize;
         }
 
         /// <summary>
@@ -331,21 +328,24 @@ namespace Library
         /// </summary>
         public override byte[] ToBytes()
         {
-            byte[] buffer = new byte[_componentRecordPtrSize + _quantitySize + _parentComponentRecordPtrSize * Quantity];
+            byte[] buffer = new byte[_componentRecordPtrSize + _quantitySize + _specificationNextPtrSize];
             int offset = 0;
 
             // ComponentPtr
             Array.Copy(BitConverter.GetBytes(ComponentRecordPtr), 0, buffer, offset, _componentRecordPtrSize);
             offset += _componentRecordPtrSize;
 
-            Array.Copy(BitConverter.GetBytes(ParentComponentRecordPtr), 0, buffer, offset, _parentComponentRecordPtrSize);
-            offset += _parentComponentRecordPtrSize;
-
             // Quantity
             Array.Copy(BitConverter.GetBytes(Quantity), 0, buffer, offset, _quantitySize);
             offset += _quantitySize;
 
+            Array.Copy(BitConverter.GetBytes(SpecificationNextPtr), 0, buffer, offset, _specificationNextPtrSize);
+            offset += _specificationNextPtrSize;
+
             buffer = base.ToBytes().Concat(buffer).ToArray();
+
+            if (SpecificationNext != null)
+                buffer = buffer.Concat(SpecificationNext.ToBytes()).ToArray();
 
             if (NextRecord != null)
                 buffer = buffer.Concat(NextRecord.ToBytes()).ToArray();
@@ -371,13 +371,12 @@ namespace Library
             record.ComponentRecordPtr = BitConverter.ToInt32(buffer, offset);
             offset += _componentRecordPtrSize;
 
-            // ParentComponentPtr
-            record.ParentComponentRecordPtr = BitConverter.ToInt32(buffer, offset);
-            offset += _parentComponentRecordPtrSize;
-
             // Quantity
             record.Quantity = BitConverter.ToUInt16(buffer, offset);
             offset += _quantitySize;
+
+            record.SpecificationNextPtr = BitConverter.ToInt32(buffer, offset);
+            offset += _specificationNextPtrSize;
 
             return record;
         }

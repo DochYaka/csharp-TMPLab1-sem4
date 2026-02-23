@@ -16,7 +16,6 @@ namespace Library
         private ComponentHeader _compHeader;
         private SpecificationHeader _specHeader;
 
-
         private FileManager(FileStream compFile, FileStream specFile, ComponentHeader compHeader, SpecificationHeader specHeader)
         {
             _compFile = compFile;
@@ -31,126 +30,25 @@ namespace Library
             {
                 if (record.SpecificationRecordPtr != -1)
                 {
-                    var tmp = GetRecordByPtr(specHeader, record.SpecificationRecordPtr);
+                    var tmp = RecordListManager<SpecificationRecord>.GetRecordByPtr(specHeader, record.SpecificationRecordPtr);
                     if (tmp == null)
                         throw new Exception("Не удалось восстановить ссылки!");
                     record.SpecificationRecord = tmp;
                 }
             });
-            EnumerateRecord(compHeader, action);
+            RecordListManager<ComponentRecord>.EnumerateRecord(compHeader, action);
 
             var action1 = new Action<SpecificationRecord>(record =>
             {
                 if (record.ComponentRecordPtr != -1)
                 {
-                    var tmp = GetRecordByPtr(compHeader, record.ComponentRecordPtr);
+                    var tmp = RecordListManager<ComponentRecord>.GetRecordByPtr(compHeader, record.ComponentRecordPtr);
                     if (tmp == null)
                         throw new Exception("Не удалось восстановить ссылки!");
                     record.ComponentRecord = tmp;
                 }
             });
-            EnumerateRecord(specHeader, action1);
-        }
-
-        private static T? GetRecordByPtr<T>(Header<T> header, int ptr) where T : Record<T>
-        {
-            if (header.FirstRecord != null)
-            {
-                if (header.FirstRecordPtr == ptr)
-                    return header.FirstRecord;
-                for (var tmpRecord = header.FirstRecord; tmpRecord.NextRecord != null; tmpRecord = tmpRecord.NextRecord)
-                {
-                    if (tmpRecord.NextRecordPtr == ptr)
-                        return tmpRecord.NextRecord;
-                }
-            }
-            return null;
-        }
-
-        private static MyComponent? GetMyCompByPtr(ComponentHeader header, int ptr)
-        {
-            if (header.FirstRecord != null)
-            {
-                var tmp = header.FirstRecord;
-                while (tmp != null)
-                {
-                    if (tmp.DataArea.GetHashCode() == ptr)
-                        return tmp.DataArea;
-
-                    tmp = tmp.NextRecord;
-                }
-            }
-            return null;
-        }
-
-        private static void EnumerateRecord<T>(Header<T> header, Action<T> action) where T : Record<T>
-        {
-            if (header.FirstRecord != null)
-            {
-                var tmp = header.FirstRecord;
-                while (tmp != null)
-                {
-                    action.Invoke(tmp);
-                    tmp = tmp.NextRecord;
-                }
-            }
-        }
-
-        private static void PushRecord<T>(Header<T> header, T record) where T : Record<T>
-        {
-            if (header.FirstRecord != null)
-            {
-                var tmp = header.FirstRecord;
-                while (tmp.NextRecord != null)
-                {
-                    tmp = tmp.NextRecord;
-                }
-                tmp.NextRecord = record;
-                tmp.NextRecordPtr = record.GetHashCode();
-            }
-            else
-            {
-                header.FirstRecord = record;
-                header.FirstRecordPtr = record.GetHashCode();
-            }
-        }
-
-        private int GetRecordPtr(string compName)
-        {
-            if (_compHeader.FirstRecord != null)
-            {
-                if (_compHeader.FirstRecord.DataArea.ComponentName == compName)
-                    return _compHeader.FirstRecordPtr;
-
-                var record = _compHeader.FirstRecord;
-                while (record.NextRecord != null)
-                {
-                    if (record.NextRecord.DataArea.ComponentName == compName)
-                        return record.NextRecordPtr;
-                    record = record.NextRecord;
-                }
-            }
-            return -1;
-        }
-
-        /// <summary>
-        /// Метод ищет запись с названием компонента
-        /// </summary>
-        /// <param name="name">Название компонента</param>
-        /// <returns>Если запись с компонентом найдена, то возвращает запись, иначе null</returns>
-        private ComponentRecord? GetCompRecByName(string name)
-        {
-            if (_compHeader.FirstRecord != null)
-            {
-                var tmp = _compHeader.FirstRecord;
-                while (tmp != null)
-                {
-                    if (tmp.DataArea.ComponentName == name)
-                        return tmp;
-                    tmp = tmp.NextRecord;
-                }
-            }
-            return null;
+            SpecificationRecordListManager.EnumerateSpecification(specHeader, action1);
         }
 
         private void UpdateCompFile()
@@ -247,8 +145,18 @@ namespace Library
 
                 var tmp = specHeader.FirstRecord;
 
-                while (tmp.NextRecordPtr != -1)
+                while (tmp.NextRecordPtr != -1 || tmp.SpecificationNextPtr != -1)
                 {
+                    var tmpSpec = tmp;
+                    while (tmpSpec.SpecificationNextPtr != -1)
+                    {
+                        tmpSpec.SpecificationNext = SpecificationRecord.FromBytes(buffer, offset);
+                        offset += tmpSpec.SpecificationNext.GetTotalSize();
+                        tmpSpec = tmpSpec.SpecificationNext;
+                    }
+                    if (tmp.NextRecordPtr == -1)
+                        break;
+
                     tmp.NextRecord = SpecificationRecord.FromBytes(buffer, offset);
                     offset += tmp.NextRecord.GetTotalSize();
                     tmp = tmp.NextRecord;
@@ -273,13 +181,13 @@ namespace Library
         /// </summary>
         public void AddComponentToComponentList(MyComponent component)
         {
-            if (GetCompRecByName(component.ComponentName) != null)
+            if (ComponentRecordListManager.GetCompRecByName(_compHeader, component.ComponentName) != null)
                 throw new ArgumentException("Компонент c таким именем уже существует!");
 
             var record = new ComponentRecord(component);
 
             //Добавляем компонент в список компонентов
-            PushRecord(_compHeader, record);
+            RecordListManager<ComponentRecord>.PushRecord(_compHeader, record);
 
             UpdateCompFile();
         }
@@ -289,13 +197,13 @@ namespace Library
         /// </summary>
         public void AddComponentToSpecification(string component, string componentAdded)
         {
-            var comp = GetCompRecByName(component);
+            var comp = ComponentRecordListManager.GetCompRecByName(_compHeader, component);
             if (comp == null)
                 throw new ArgumentException(_compNotFoundExc);
             if (comp.DataArea.ComponentType == ComponentType.Detail)
                 throw new Exception("Деталь не может иметь спецификацию!");
 
-            var compAdded = GetCompRecByName(componentAdded);
+            var compAdded = ComponentRecordListManager.GetCompRecByName(_compHeader, componentAdded);
             if (compAdded == null)
                 throw new Exception("Невозможно добавить не существующее комплектующее!");
             if (compAdded.DataArea.ComponentType == ComponentType.Product)
@@ -303,15 +211,26 @@ namespace Library
 
             var spec = new SpecificationRecord()
             {
-                ParentComponentRecordPtr = GetRecordPtr(comp.DataArea.ComponentName),
-                ComponentRecordPtr = GetRecordPtr(compAdded.DataArea.ComponentName),
+                ComponentRecordPtr = ComponentRecordListManager.GetCompRecPtr(_compHeader, compAdded.DataArea.ComponentName),
                 ComponentRecord = compAdded
             };
 
-            PushRecord(_specHeader, spec);
-
             if (comp.SpecificationRecord == null)
+            {
+                RecordListManager<SpecificationRecord>.PushRecord(_specHeader, spec);
                 comp.SpecificationRecord = spec;
+            }
+            else
+            {
+                var tmp = comp.SpecificationRecord.SpecificationNext;
+                while (tmp != null)
+                {
+                    tmp = tmp.SpecificationNext;
+                }
+
+                comp.SpecificationRecord.SpecificationNextPtr = spec.GetHashCode();
+                comp.SpecificationRecord.SpecificationNext = spec;
+            }
 
             UpdateFiles();
         }
@@ -334,92 +253,217 @@ namespace Library
             AddComponentToSpecification(myComponent1.ComponentName, myComponent4.ComponentName);
         }
 
-        /// <summary>
-        /// Вывод всей структуры на экран
-        /// </summary>
-        public void PrintComponents()
+        public IEnumerable<MyComponent> GetAllComponents()
         {
-            Console.WriteLine($"{"Наименование",-20}Тип");
-
-            var print = new Action<ComponentRecord>(record =>
-            {
-                Console.WriteLine($"{record.DataArea.ComponentName,-20}{record.DataArea.ComponentType.ToString()}");
-            });
-
-            EnumerateRecord(_compHeader, print);
+            return ComponentRecordListManager.GetComponents(_compHeader);
         }
 
-        public void PrintCompWithSpec(string compName)
+        public ComponentsSpecification? GetCompWithSpecs(string compName)
         {
-            var myComp = GetCompRecByName(compName);
+            var myComp = ComponentRecordListManager.GetCompRecByName(_compHeader, compName);
             if (myComp == null)
                 throw new ArgumentException(_compNotFoundExc);
             if (myComp.DataArea.ComponentType == ComponentType.Detail)
                 throw new Exception("У детали нет спецификации!");
 
-            Console.WriteLine(compName);
-
             if (myComp.SpecificationRecord == null)
-                return;
+                return null;
 
-            List<ComponentRecord> components = new();
+            ComponentsSpecification specification = new(myComp.DataArea);
+
+            var tmpComp = myComp;
+            while (tmpComp != null)
+            {
+                if (tmpComp.SpecificationRecord != null)
+                {
+
+                }
+            }
 
             throw new NotImplementedException();
         }
-
-        //private void DisplaySpecification(int specPtr, int indentLevel)
-        //{
-        //    string indent = new string(' ', indentLevel * 2);
-        //    int current = specPtr;
-
-        //    while (current != -1)
-        //    {
-        //        byte[] buffer = new byte[SpecificationRecord.TotalSize];
-        //        _specFile.Seek(current, SeekOrigin.Begin);
-        //        _specFile.Read(buffer, 0, SpecificationRecord.TotalSize);
-
-        //        var record = SpecificationRecord.FromBytes(buffer);
-
-        //        if (record.IsDeleted == 0)
-        //        {
-        //            // Получаем имя компонента из списка изделий
-        //            string componentName = "???";
-        //            if (record.ComponentRecordPtr != -1)
-        //            {
-        //                byte[] nameBuffer = new byte[_compHeader.DataRecordLength];
-        //                _compFile.Seek(record.ComponentRecordPtr + ComponentListRecord.DeletionBitSize +
-        //                               ComponentListRecord.SpecificationRecordPtrSize +
-        //                               ComponentListRecord.NextRecordPtrSize, SeekOrigin.Begin);
-        //                _compFile.Read(nameBuffer, 0, _compHeader.DataRecordLength);
-        //                componentName = Encoding.ASCII.GetString(nameBuffer).TrimEnd();
-        //            }
-
-        //            Console.WriteLine($"{indent}Спецификация (смещение {current}):");
-        //            Console.WriteLine($"{indent}  Компонент: {componentName} (указ. {record.ComponentRecordPtr})");
-        //            Console.WriteLine($"{indent}  Количество: {record.Quantity}");
-        //            Console.WriteLine($"{indent}  Следующая: {record.NextRecordPtr}");
-        //        }
-
-        //        current = record.NextRecordPtr;
-        //    }
-        //}
-
-        //private void UpdatePartsHeader()
-        //{
-        //    _compFile.Seek(0, SeekOrigin.Begin);
-        //    _compFile.Write(_compHeader.ToBytes(), 0, ComponentListHeader.TotalSize);
-        //}
-
-        //private void UpdateSpecHeader()
-        //{
-        //    _specFile.Seek(0, SeekOrigin.Begin);
-        //    _specFile.Write(_specHeader.ToBytes(), 0, SpecificationHeader.TotalSize);
-        //}
 
         public void Dispose()
         {
             _compFile?.Dispose();
             _specFile?.Dispose();
+        }
+    }
+
+    public class RecordListManager<T> where T : Record<T>
+    {
+        public static T? GetRecordByPtr(Header<T> header, int ptr)
+        {
+            if (header.FirstRecord != null)
+            {
+                if (header.FirstRecordPtr == ptr)
+                    return header.FirstRecord;
+                for (var tmpRecord = header.FirstRecord; tmpRecord.NextRecord != null; tmpRecord = tmpRecord.NextRecord)
+                {
+                    if (tmpRecord.NextRecordPtr == ptr)
+                        return tmpRecord.NextRecord;
+                }
+            }
+            return null;
+        }
+
+        public static void EnumerateRecord(Header<T> header, Action<T> action)
+        {
+            if (header.FirstRecord != null)
+            {
+                var tmp = header.FirstRecord;
+                while (tmp != null)
+                {
+                    action.Invoke(tmp);
+                    tmp = tmp.NextRecord;
+                }
+            }
+        }
+
+        public static void PushRecord(Header<T> header, T record)
+        {
+            if (header.FirstRecord != null)
+            {
+                var tmp = header.FirstRecord;
+                while (tmp.NextRecord != null)
+                {
+                    tmp = tmp.NextRecord;
+                }
+                tmp.NextRecord = record;
+                tmp.NextRecordPtr = record.GetHashCode();
+            }
+            else
+            {
+                header.FirstRecord = record;
+                header.FirstRecordPtr = record.GetHashCode();
+            }
+        }
+    }
+
+    public class ComponentRecordListManager : RecordListManager<ComponentRecord>
+    {
+        public static MyComponent? GetMyCompByPtr(ComponentHeader header, int ptr)
+        {
+            if (header.FirstRecord != null)
+            {
+                var tmp = header.FirstRecord;
+                while (tmp != null)
+                {
+                    if (tmp.DataArea.GetHashCode() == ptr)
+                        return tmp.DataArea;
+
+                    tmp = tmp.NextRecord;
+                }
+            }
+            return null;
+        }
+
+        public static int GetCompRecPtr(ComponentHeader header, string compName)
+        {
+            if (header.FirstRecord != null)
+            {
+                if (header.FirstRecord.DataArea.ComponentName == compName)
+                    return header.FirstRecordPtr;
+
+                var record = header.FirstRecord;
+                while (record.NextRecord != null)
+                {
+                    if (record.NextRecord.DataArea.ComponentName == compName)
+                        return record.NextRecordPtr;
+                    record = record.NextRecord;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Метод ищет запись с названием компонента
+        /// </summary>
+        /// <param name="name">Название компонента</param>
+        /// <returns>Если запись с компонентом найдена, то возвращает запись, иначе null</returns>
+        public static ComponentRecord? GetCompRecByName(ComponentHeader header, string name)
+        {
+            if (header.FirstRecord != null)
+            {
+                var tmp = header.FirstRecord;
+                while (tmp != null)
+                {
+                    if (tmp.DataArea.ComponentName == name)
+                        return tmp;
+                    tmp = tmp.NextRecord;
+                }
+            }
+            return null;
+        }
+
+        public static IEnumerable<MyComponent> GetComponents(ComponentHeader header)
+        {
+            var res = new List<MyComponent>();
+
+            var tmp = new Action<ComponentRecord>(x =>
+            {
+                res.Add(x.DataArea);
+            });
+
+            EnumerateRecord(header, tmp);
+
+            return res;
+        }
+    }
+
+    public class SpecificationRecordListManager : RecordListManager<SpecificationRecord>
+    {
+        public static void EnumerateSpecification(SpecificationHeader record, Action<SpecificationRecord> action)
+        {
+            var action1 = new Action<SpecificationRecord>(record =>
+            {
+                var tmp = record;
+                while (tmp != null)
+                {
+                    action.Invoke(tmp);
+                    tmp = tmp.SpecificationNext;
+                }
+            });
+
+            EnumerateRecord(record, action1);
+        }
+    }
+
+    public class ComponentsSpecification
+    {
+        public MyComponent Value { get; set; }
+
+        public List<ComponentsSpecification> Specifications { get; set; }
+
+        public ComponentsSpecification(MyComponent value)
+        {
+            Value = value;
+            Specifications = new();
+        }
+
+        public List<List<string>> AllSpecsToStrings()
+        {
+            var res = new List<List<string>>();
+
+            foreach (var item in Specifications)
+            {
+                res.Add(item.SpecsToStrings());
+                res = res.Concat(item.AllSpecsToStrings()).ToList();
+            }
+
+            return res;
+        }
+
+        private List<string> SpecsToStrings()
+        {
+            List<string> res = new List<string>();
+
+            foreach (var item in Specifications)
+            {
+                res.Add(item.Value.ComponentName);
+            }
+
+            return res;
         }
     }
 }

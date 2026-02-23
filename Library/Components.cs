@@ -41,13 +41,13 @@ namespace Library
             };
         }
 
-        public static string ToString(this ComponentType type)
+        public static string ToStr(this ComponentType type)
         {
             return type switch
             {
-                ComponentType.Detail => "деталь",
-                ComponentType.Node => "узел",
-                ComponentType.Product => "изделие",
+                ComponentType.Detail => "Деталь",
+                ComponentType.Node => "Узел",
+                ComponentType.Product => "Изделие",
                 _ => throw new ArgumentException("Не существующий тип!")
             };
         }
