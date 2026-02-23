@@ -1,5 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 
 namespace Library
 {
@@ -10,12 +9,17 @@ namespace Library
         public ComponentType ComponentType { get; private set; } = type;
         public string ComponentName { get; set; } = name;
 
-        //public ObservableCollection<MyComponent> Children { get; set; }
-        //    = new ObservableCollection<MyComponent>();
-
         public override int GetHashCode()
         {
-            return ComponentName.GetHashCode();
+            unchecked
+            {
+                int hash = 23;
+                foreach (char c in ComponentName)
+                {
+                    hash = hash * 31 + c;
+                }
+                return hash;
+            }
         }
     }
 
@@ -24,7 +28,7 @@ namespace Library
         Detail, Product, Node
     }
 
-    public static class StringExtentions
+    public static class Extentions
     {
         public static ComponentType ToComponentType(this string str)
         {
@@ -34,6 +38,17 @@ namespace Library
                 "узел" => ComponentType.Node,
                 "изделие" => ComponentType.Product,
                 _ => throw new ArgumentException("Компонент не найден!"),
+            };
+        }
+
+        public static string ToStr(this ComponentType type)
+        {
+            return type switch
+            {
+                ComponentType.Detail => "Деталь",
+                ComponentType.Node => "Узел",
+                ComponentType.Product => "Изделие",
+                _ => throw new ArgumentException("Не существующий тип!")
             };
         }
     }

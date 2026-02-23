@@ -10,8 +10,6 @@ namespace Library
         protected const int _deletionBitSize = 1;
         protected const int _nextRecordPtrSize = 4;
 
-        public Record? NextRecord { get; set; }
-
         public int NextRecordPtr { get; set; } // Указатель на следующую запись
         public bool IsDeleted { get; set; } // 0 - активно, 1 - удалено
 
@@ -43,7 +41,7 @@ namespace Library
 
     public abstract class Record<T> : Record where T : Record
     {
-        public new T? NextRecord { get; set; }
+        public T? NextRecord { get; set; }
     }
 
     public abstract class Header
@@ -55,8 +53,6 @@ namespace Library
         {
             get => _freeAreaPtrSize + _firstRecordPtrSize;
         }
-
-        public Record? FirstRecord { get; set; }
 
         public int FirstRecordPtr { get; set; }
         public int FreeAreaPtr { get; set; }
@@ -84,13 +80,13 @@ namespace Library
 
     public abstract class Header<T> : Header where T : Record
     {
-        public new T? FirstRecord { get; set; }
+        public T? FirstRecord { get; set; }
     }
 
     /// <summary>
     /// Структура заголовка файла списка изделий
     /// </summary>
-    public class ComponentListHeader : Header<ComponentListRecord>
+    public class ComponentHeader : Header<ComponentRecord>
     {
         private const int _signatureSize = 2;
         private const int _recordLengthSize = 2;
@@ -105,7 +101,7 @@ namespace Library
         public static ushort DataRecordLength { get; private set; }
         public char[] SpecFilename { get; set; }
 
-        public ComponentListHeader(ushort dataRecordLength, string specFilename)
+        public ComponentHeader(ushort dataRecordLength, string specFilename)
         {
             Signature = Encoding.ASCII.GetBytes("PS");
             DataRecordLength = dataRecordLength;
@@ -140,7 +136,7 @@ namespace Library
         }
 
         //Десериализация
-        public static ComponentListHeader FromBytes(byte[] buffer, int startIndex = 0)
+        public static ComponentHeader FromBytes(byte[] buffer, int startIndex = 0)
         {
             int offset = startIndex;
 
@@ -165,7 +161,7 @@ namespace Library
             var specFilename = Encoding.UTF8.GetString(buffer, offset, _specFilenameSize);
             offset += _specFilenameSize;
 
-            return new ComponentListHeader(dataRecordLength, specFilename)
+            return new ComponentHeader(dataRecordLength, specFilename)
             {
                 Signature = signature,
                 FirstRecordPtr = firstRecordPtr,
@@ -177,7 +173,7 @@ namespace Library
     /// <summary>
     /// Запись файла списка изделий
     /// </summary>
-    public class ComponentListRecord : Record<ComponentListRecord>
+    public class ComponentRecord : Record<ComponentRecord>
     {
         private const int _specificationRecordPtrSize = 4;
         private const int _componentTypeSize = 2;
@@ -188,18 +184,18 @@ namespace Library
 
         public int SpecificationRecordPtr { get; set; } // Указатель на первую запись в спецификации
 
-        public ComponentListRecord(MyComponent component) : base()
+        public ComponentRecord(MyComponent component) : base()
         {
             SpecificationRecordPtr = -1;
 
-            if (component.ComponentName.Length > ComponentListHeader.DataRecordLength * 2)
+            if (component.ComponentName.Length > ComponentHeader.DataRecordLength * 2)
                 throw new Exception("Название компонента слишком длинное");
             DataArea = component;
         }
 
         public override int GetTotalSize()
         {
-            return base.GetTotalSize() + _specificationRecordPtrSize + ComponentListHeader.DataRecordLength * 2 + _componentTypeSize;
+            return base.GetTotalSize() + _specificationRecordPtrSize + ComponentHeader.DataRecordLength * 2 + _componentTypeSize;
         }
 
         /// <summary>
@@ -207,7 +203,7 @@ namespace Library
         /// </summary>
         public override byte[] ToBytes()
         {
-            byte[] buffer = new byte[_specificationRecordPtrSize + _componentTypeSize + ComponentListHeader.DataRecordLength * 2];
+            byte[] buffer = new byte[_specificationRecordPtrSize + _componentTypeSize + ComponentHeader.DataRecordLength * 2];
             int offset = 0;
 
             Array.Copy(BitConverter.GetBytes(SpecificationRecordPtr), 0, buffer, offset, _specificationRecordPtrSize);
@@ -216,11 +212,11 @@ namespace Library
             Array.Copy(BitConverter.GetBytes(Convert.ToInt16(DataArea.ComponentType)), 0, buffer, offset, _componentTypeSize);
             offset += _componentTypeSize;
 
-            byte[] nameBytes = new byte[ComponentListHeader.DataRecordLength * 2];
+            byte[] nameBytes = new byte[ComponentHeader.DataRecordLength * 2];
             byte[] strBytes = Encoding.Unicode.GetBytes(DataArea.ComponentName);
             Array.Copy(strBytes, nameBytes, strBytes.Length);
             Array.Copy(nameBytes, 0, buffer, offset, nameBytes.Length);
-            offset = ComponentListHeader.DataRecordLength * 2;
+            offset = ComponentHeader.DataRecordLength * 2;
 
             buffer = base.ToBytes().Concat(buffer).ToArray();
 
@@ -231,7 +227,7 @@ namespace Library
         }
 
         //Десериализация
-        public static ComponentListRecord FromBytes(byte[] buffer, int startIndex = 0)
+        public static ComponentRecord FromBytes(byte[] buffer, int startIndex = 0)
         {
             int offset = startIndex;
 
@@ -251,12 +247,12 @@ namespace Library
             ComponentType componentType = (ComponentType)BitConverter.ToInt16(buffer, offset);
             offset += _componentTypeSize;
 
-            string name = Encoding.Unicode.GetString(buffer, offset, ComponentListHeader.DataRecordLength * 2).Trim('\0');
-            offset += ComponentListHeader.DataRecordLength * 2;
+            string name = Encoding.Unicode.GetString(buffer, offset, ComponentHeader.DataRecordLength * 2).Trim('\0');
+            offset += ComponentHeader.DataRecordLength * 2;
 
             MyComponent myComponent = new MyComponent(name, componentType);
 
-            return new ComponentListRecord(myComponent)
+            return new ComponentRecord(myComponent)
             {
                 IsDeleted = isDeleted,
                 SpecificationRecordPtr = specificationRecordPtr,
@@ -305,27 +301,26 @@ namespace Library
     {
         private const int _componentRecordPtrSize = 4;
         private const int _quantitySize = 2;
-        private const int _componentPtrSize = 4;
+        private const int _specificationNextPtrSize = 4;
 
-        public ComponentListRecord? ComponentRecord { get; set; }
-        public MyComponent[] Components { get; set; }
+        public ComponentRecord? ComponentRecord { get; set; }
+        public SpecificationRecord? SpecificationNext { get; set; }
 
         public int ComponentRecordPtr { get; set; } // Указатель на запись в списке изделий
         public ushort Quantity { get; set; } // Кратность вхождения
-        public int[] ComponentPtrs { get; set; }
+        public int SpecificationNextPtr { get; set; }
+
 
         public SpecificationRecord(ushort quantity = 2) : base()
         {
             ComponentRecordPtr = -1;
             Quantity = quantity;
-            Components = new MyComponent[quantity];
-            ComponentPtrs = new int[quantity];
-            Array.Fill(ComponentPtrs, -1);
+            SpecificationNextPtr = -1;
         }
 
         public override int GetTotalSize()
         {
-            return _componentPtrSize * Quantity + base.GetTotalSize() + _componentRecordPtrSize + _quantitySize;
+            return base.GetTotalSize() + _componentRecordPtrSize + _quantitySize + _specificationNextPtrSize;
         }
 
         /// <summary>
@@ -333,7 +328,7 @@ namespace Library
         /// </summary>
         public override byte[] ToBytes()
         {
-            byte[] buffer = new byte[_componentRecordPtrSize + _quantitySize + _componentPtrSize * Quantity];
+            byte[] buffer = new byte[_componentRecordPtrSize + _quantitySize + _specificationNextPtrSize];
             int offset = 0;
 
             // ComponentPtr
@@ -344,15 +339,13 @@ namespace Library
             Array.Copy(BitConverter.GetBytes(Quantity), 0, buffer, offset, _quantitySize);
             offset += _quantitySize;
 
-            for (int i = 0; i < ComponentPtrs.Length; i++)
-            {
-                if (ComponentPtrs[i] == 0)
-                    ComponentPtrs[i] = -1;
-                Array.Copy(BitConverter.GetBytes(ComponentPtrs[i]), 0, buffer, offset, _componentPtrSize);
-                offset += _componentPtrSize;
-            }
+            Array.Copy(BitConverter.GetBytes(SpecificationNextPtr), 0, buffer, offset, _specificationNextPtrSize);
+            offset += _specificationNextPtrSize;
 
             buffer = base.ToBytes().Concat(buffer).ToArray();
+
+            if (SpecificationNext != null)
+                buffer = buffer.Concat(SpecificationNext.ToBytes()).ToArray();
 
             if (NextRecord != null)
                 buffer = buffer.Concat(NextRecord.ToBytes()).ToArray();
@@ -382,31 +375,10 @@ namespace Library
             record.Quantity = BitConverter.ToUInt16(buffer, offset);
             offset += _quantitySize;
 
-            int i = 0;
-            while (offset - startIndex < totalSize)
-            {
-                record.ComponentPtrs[i] = BitConverter.ToInt32(buffer, offset);
-                offset += _componentPtrSize;
-                i++;
-            }
+            record.SpecificationNextPtr = BitConverter.ToInt32(buffer, offset);
+            offset += _specificationNextPtrSize;
 
             return record;
-        }
-
-        public void AddComponent(MyComponent? myComponent)
-        {
-            if (myComponent == null)
-                return;
-
-            int i = 0;
-            while (Components[i] != null)
-            {
-                if (i == Components.Length - 1)
-                    throw new Exception("Достигнут лимит компонентов в спецификации!");
-                i++;
-            }
-            Components[i] = myComponent;
-            ComponentPtrs[i] = myComponent.GetHashCode();
         }
     }
 }
