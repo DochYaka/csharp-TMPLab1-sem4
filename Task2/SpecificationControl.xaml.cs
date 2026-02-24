@@ -2,6 +2,7 @@
 using Library.Components;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace Task2
 {
@@ -13,6 +14,8 @@ namespace Task2
         private FileManager _fileManager;
         private MyComponent? _selectedComponent;
         private TreeViewItem? _selectedTreeNode;
+
+        private TreeViewItem? _lastHighlightedItem;
 
         public SpecificationControl(FileManager fileManager)
         {
@@ -33,7 +36,6 @@ namespace Task2
             {
                 var allComponents = _fileManager.GetAllComponents().ToList();
 
-                // Фильтрация по поисковому запросу
                 if (!string.IsNullOrWhiteSpace(searchText))
                 {
                     allComponents = allComponents
@@ -434,31 +436,46 @@ namespace Task2
             }
         }
 
-        private void BtnCreate_Click(object sender, RoutedEventArgs e)
+        private void Search_Click(object sender, RoutedEventArgs e)
         {
-            try
+            string searchText = SearchTextBox.Text.Trim();
+
+            if (string.IsNullOrEmpty(searchText))
             {
-                _fileManager.Dispose();
-                _fileManager = FileManager.CreateFiles("components.dat", "specs.dat");
-                _fileManager.Test();
-
-                BuildTree(SearchTextBox.Text);
-
-                MessageBox.Show("Тестовые данные созданы!", "Успех",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-
-                DataChanged?.Invoke(this, EventArgs.Empty);
+                MessageBox.Show("Введите текст для поиска");
+                return;
             }
-            catch (Exception ex)
+
+            if (_lastHighlightedItem != null)
+                _lastHighlightedItem.Background = Brushes.Transparent;
+
+            TreeViewItem? foundItem = FindTreeNode(treeView.Items, searchText);
+
+            if (foundItem != null)
             {
-                MessageBox.Show($"Ошибка создания: {ex.Message}", "Ошибка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                foundItem.Background = Brushes.Blue;
+
+                _lastHighlightedItem = foundItem;
+                MessageBox.Show($"Найден: {((MyComponent)foundItem.Tag).ComponentName}");
             }
+            else { MessageBox.Show($"Компонент '{searchText}' не найден"); }
         }
 
-        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        private TreeViewItem? FindTreeNode(ItemCollection items, string searchText)
         {
-            BuildTree(SearchTextBox.Text);
+            foreach (TreeViewItem item in items)
+            {
+                if (item.Tag is MyComponent comp &&
+                    comp.ComponentName.Equals(searchText, StringComparison.OrdinalIgnoreCase))
+                    return item;
+
+                if (item.Items.Count > 0)
+                {
+                    var found = FindTreeNode(item.Items, searchText);
+                    if (found != null) return found;
+                }
+            }
+            return null;
         }
 
         public event EventHandler DataChanged;
