@@ -1,19 +1,10 @@
 ﻿using Library;
+using Library.Components;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Task2
 {
@@ -23,17 +14,15 @@ namespace Task2
     public partial class ComponentWindow : Window
     {
         private FileManager _fileManager;
-
         public ObservableCollection<MyComponent> Components { get; set; }
 
+        private MyComponent? _selectedParent;
 
         public ComponentWindow(FileManager fileManager)
         {
             InitializeComponent();
 
-            fileManager = FileManager.CreateFiles("comp.dat", "spec.dat");
-
-            _fileManager = fileManager;
+            _fileManager = fileManager ?? throw new ArgumentNullException(nameof(fileManager));
 
             Components = new ObservableCollection<MyComponent>(
                 _fileManager.GetAllComponents()
@@ -49,15 +38,16 @@ namespace Task2
 
         private void ComponentsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ComponentListView.SelectedItem == null)
+            bool isSelected = ComponentListView.SelectedItem != null;
+            EditButton.IsEnabled = isSelected;
+            DeleteButton.IsEnabled = isSelected;
+
+            if (isSelected)
             {
-                EditButton.IsEnabled = false;
-                DeleteButton.IsEnabled = false;
-            }
-            else
-            {
-                EditButton.IsEnabled = true;
-                DeleteButton.IsEnabled = true;
+                _selectedParent = (MyComponent)ComponentListView.SelectedItem;
+
+                NameTextBox.Text = _selectedParent.ComponentName;
+                TypeComboBox.SelectedItem = _selectedParent.ComponentType;
             }
         }
 
@@ -65,79 +55,62 @@ namespace Task2
         {
             try
             {
-                var text = NameTextBox.Text;
+                if (_selectedParent == null)
+                {
+                    MessageBox.Show("Сначала выберите компонент, в спецификацию которого нужно добавить",
+                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var text = NameTextBox.Text?.Trim();
 
                 if (string.IsNullOrEmpty(text))
                 {
-                    MessageBox.Show("Введите наименование", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Введите наименование компонента для добавления", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
+
                 if (TypeComboBox.SelectedItem == null)
                 {
-                    MessageBox.Show("Выберите тип", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Выберите тип компонента", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 var type = (ComponentType)TypeComboBox.SelectedItem;
 
-                MyComponent component = new(text, type);
-                _fileManager.AddComponentToComponentList(component);
-                Components.Add(component);
+                if (_selectedParent.ComponentType == ComponentType.Detail)
+                {
+                    MessageBox.Show($"Компонент '{_selectedParent.ComponentName}' является деталью и не может иметь спецификацию!",
+                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
-                //if (ComponentListView.SelectedItem == null)
-                //{
-                //    var text = NameTextBox.Text;
+                if (type == ComponentType.Product)
+                {
+                    MessageBox.Show("Нельзя добавить изделие в спецификацию!",
+                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
-                //    if (string.IsNullOrEmpty(text))
-                //    {
-                //        MessageBox.Show("Введите наименование", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                //        return;
-                //    }
-                //    if (TypeComboBox.SelectedItem == null)
-                //    {
-                //        MessageBox.Show("Выберите тип", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                //        return;
-                //    }
+                MyComponent newComponent = new(text, type);
 
-                //    var type = (ComponentType)TypeComboBox.SelectedItem;
+                _fileManager.AddComponentToComponentList(newComponent);
+                Components.Add(newComponent);
 
-                //    MyComponent component = new(text, type);
-                //    _fileManager.AddComponentToComponentList(component);
-                //    Components.Add(component);
-                //}
-                //else
-                //{
-                //    var selectedComponent = (MyComponent)ComponentListView.SelectedItem;
+                _fileManager.AddComponentToSpecification(_selectedParent.ComponentName, newComponent.ComponentName);
 
-                //    var text = NameTextBox.Text;
+                NameTextBox.Clear();
+                TypeComboBox.SelectedItem = null;
 
-                //    if (string.IsNullOrEmpty(text))
-                //    {
-                //        MessageBox.Show("Введите наименование", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                //        return;
-                //    }
-                //    if (TypeComboBox.SelectedItem == null)
-                //    {
-                //        MessageBox.Show("Выберите тип", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                //        return;
-                //    }
-
-                //    var type = (ComponentType)TypeComboBox.SelectedItem;
-
-                //    MyComponent maincomponent = new(text, type);
-                //    _fileManager.AddComponentToComponentList(maincomponent);
-                //    Components.Add(maincomponent);
-
-                //    _fileManager.AddComponentToSpecification(selectedComponent.ComponentName, text);
-
-                //    MyComponent component = new(text, type);
-                //    selectedComponent.Children.Add(component);
-                //}
-
+                MessageBox.Show($"Компонент '{text}' создан и добавлен в спецификацию '{_selectedParent.ComponentName}'",
+                    "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -146,61 +119,64 @@ namespace Task2
             try
             {
                 var component = (MyComponent)ComponentListView.SelectedItem;
+                if (component == null) return;
 
-                if (component == null)
+                var text = NameTextBox.Text?.Trim();
+
+                if (string.IsNullOrEmpty(text))
                 {
-                    MessageBox.Show("Выберите компонент", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Введите наименование", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                var text = NameTextBox.Text;
+                string oldName = component.ComponentName;
                 component.ComponentName = text;
 
-                Components.Clear();
-                foreach (var item in _fileManager.GetAllComponents())
-                {
-                    Components.Add(item);
-                }
+                ComponentListView.Items.Refresh();
+
+                MessageBox.Show($"Компонент '{oldName}' изменён на '{text}'",
+                    "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                MessageBox.Show($"Ошибка при редактировании: {ex.Message}", "Ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-
-        private void Cancel_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-
-        private void Save_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                var component = (MyComponent)ComponentListView.SelectedItem;
+            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
 
-                if (ComponentListView.SelectedItem == null)
-                {
-                    MessageBox.Show("Выберите компонент", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
+        private void Cancel_Click(object sender, RoutedEventArgs e)
+        {
+            NameTextBox.Clear();
+            TypeComboBox.SelectedItem = null;
+            ComponentListView.SelectedItem = null;
+            _selectedParent = null;
+        }
 
-                Components.Remove(component);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
+        private void Save_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshAllComponents();
+            MessageBox.Show("Данные обновлены", "Информация",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void LoadData()
         {
             TypeComboBox.ItemsSource = Enum.GetValues(typeof(ComponentType));
+        }
+
+        private void RefreshAllComponents()
+        {
+            Components.Clear();
+            foreach (var comp in _fileManager.GetAllComponents())
+            {
+                Components.Add(comp);
+            }
         }
     }
 }
