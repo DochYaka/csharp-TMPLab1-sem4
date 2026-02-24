@@ -10,7 +10,5 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Library\Library.csproj" />
-	<Reference Include="Microsoft.VisualBasic" />
   </ItemGroup>
-
 </Project>
