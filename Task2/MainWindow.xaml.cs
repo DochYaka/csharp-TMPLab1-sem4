@@ -38,7 +38,7 @@ namespace Task2
 
         private void SpecificationList_Click(object sender, RoutedEventArgs e)
         {
-            var specificationWindow = new SpecificationWindow(_fileManager) { Owner = this };
+            var specificationWindow = new SpecificationWindow() { Owner = this };
             specificationWindow.Show();
         }
     }
