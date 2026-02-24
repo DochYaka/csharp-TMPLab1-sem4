@@ -1,23 +1,56 @@
-﻿using System.Text;
-using System.Windows;
+﻿using System;
 using System.IO;
+using System.Windows;
 using Microsoft.Win32;
 using Library;
 
 namespace Task2
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
-    {   
+    {
         private FileManager? _fileManager;
+        private ComponentControl? _componentControl;
+        private SpecificationControl? _specificationControl;
         private readonly string _downloadPath;
 
         public MainWindow()
         {
             InitializeComponent();
             _downloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+            CreateDefaultFile();
+        }
+
+        private void CreateDefaultFile()
+        {
+            try
+            {
+                _fileManager?.Dispose();
+                _fileManager = FileManager.CreateFiles("components.dat", "specs.dat");
+
+                _fileManager.Test();
+
+                CreateControls();
+
+                ComponentList_Click(null, null);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}");
+            }
+        }
+
+        private void CreateControls()
+        {
+            if (_fileManager == null) return;
+
+            _componentControl = new ComponentControl(_fileManager);
+            _specificationControl = new SpecificationControl(_fileManager);
+
+            _componentControl.DataChanged += (s, e) =>
+            {
+                _specificationControl?.BuildTree();
+            };
         }
 
         private void OpenFile_Click(object sender, RoutedEventArgs e)
@@ -25,8 +58,7 @@ namespace Task2
             var dialog = new OpenFileDialog
             {
                 Filter = "Component files (*.dat)|*.dat|All files (*.*)|*.*",
-                InitialDirectory = _downloadPath,
-                Title = "Выберите файл компонентов"
+                InitialDirectory = _downloadPath
             };
 
             if (dialog.ShowDialog() == true)
@@ -38,50 +70,34 @@ namespace Task2
                     string fileName = Path.GetFileName(dialog.FileName);
                     _fileManager = FileManager.OpenFiles(fileName);
 
-                    MessageBox.Show($"Файл {fileName} успешно загружен!", "Успех",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    CreateControls();
+                    ComponentList_Click(null, null);
+
+                    MessageBox.Show($"Файл {fileName} загружен");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Ошибка открытия файла: {ex.Message}", "Ошибка",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Ошибка: {ex.Message}");
                 }
             }
         }
 
         private void ComponentList_Click(object sender, RoutedEventArgs e)
         {
-            if (_fileManager == null)
+            if (_componentControl != null)
             {
-                try
-                {
-                    _fileManager = FileManager.CreateFiles("components.dat", "specs.dat");
-                    MessageBox.Show("Создан новый файл components.dat", "Информация",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка создания файла: {ex.Message}", "Ошибка",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+                _componentControl.RefreshData();
+                ContentArea.Content = _componentControl;
             }
-
-            var componentWindow = new ComponentWindow(_fileManager) { Owner = this };
-            componentWindow.ShowDialog();
         }
 
         private void SpecificationList_Click(object sender, RoutedEventArgs e)
         {
-            if (_fileManager == null)
+            if (_specificationControl != null)
             {
-                MessageBox.Show("Сначала откройте или создайте файл через кнопку 'Компоненты'",
-                    "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                _specificationControl.BuildTree();
+                ContentArea.Content = _specificationControl;
             }
-
-            var specificationWindow = new SpecificationWindow(_fileManager) { Owner = this };
-            specificationWindow.ShowDialog();
         }
 
         protected override void OnClosed(EventArgs e)

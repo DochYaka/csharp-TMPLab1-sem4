@@ -1,9 +1,5 @@
 ﻿using Library;
 using Library.Components;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -12,22 +8,20 @@ namespace Task2
     /// <summary>
     /// Логика взаимодействия для SpecificationWindow.xaml
     /// </summary>
-    public partial class SpecificationWindow : Window
+    public partial class SpecificationControl : UserControl
     {
         private FileManager _fileManager;
 
-        public SpecificationWindow(FileManager fileManager)
+        public SpecificationControl(FileManager fileManager)
         {
             InitializeComponent();
 
             _fileManager = fileManager ?? throw new ArgumentNullException(nameof(fileManager));
 
-            // Сразу строим дерево при открытии
             Loaded += (s, e) => BuildTree();
         }
 
-        // Построить дерево
-        private void BuildTree()
+        public void BuildTree()
         {
             treeView.Items.Clear();
 

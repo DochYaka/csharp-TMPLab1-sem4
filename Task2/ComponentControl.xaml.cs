@@ -1,24 +1,24 @@
 ﻿using Library;
 using Library.Components;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
 namespace Task2
 {
     /// <summary>
-    /// Логика взаимодействия для Components.xaml
+    /// Логика взаимодействия для ComponentControl.xaml
     /// </summary>
-    public partial class ComponentWindow : Window
+    public partial class ComponentControl : UserControl
     {
         private FileManager _fileManager;
         public ObservableCollection<MyComponent> Components { get; set; }
 
         private MyComponent? _selectedParent;
 
-        public ComponentWindow(FileManager fileManager)
+        public event EventHandler DataChanged;
+
+        public ComponentControl(FileManager fileManager)
         {
             InitializeComponent();
 
@@ -31,10 +31,7 @@ namespace Task2
             DataContext = this;
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            LoadData();
-        }
+        private void Window_Loaded(object sender, RoutedEventArgs e) { LoadData(); }
 
         private void ComponentsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -55,13 +52,6 @@ namespace Task2
         {
             try
             {
-                if (_selectedParent == null)
-                {
-                    MessageBox.Show("Сначала выберите компонент, в спецификацию которого нужно добавить",
-                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
                 var text = NameTextBox.Text?.Trim();
 
                 if (string.IsNullOrEmpty(text))
@@ -80,32 +70,48 @@ namespace Task2
 
                 var type = (ComponentType)TypeComboBox.SelectedItem;
 
-                if (_selectedParent.ComponentType == ComponentType.Detail)
+                if (_selectedParent == null)
                 {
-                    MessageBox.Show($"Компонент '{_selectedParent.ComponentName}' является деталью и не может иметь спецификацию!",
-                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
+                    MyComponent newComponent = new(text, type);
 
-                if (type == ComponentType.Product)
+                    _fileManager.AddComponentToComponentList(newComponent);
+                    Components.Add(newComponent);
+
+                    NameTextBox.Clear();
+                    TypeComboBox.SelectedItem = null;
+
+                    MessageBox.Show($"Компонент '{text}' создан и добавлен",
+                        "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
                 {
-                    MessageBox.Show("Нельзя добавить изделие в спецификацию!",
-                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
+                    if (_selectedParent.ComponentType == ComponentType.Detail)
+                    {
+                        MessageBox.Show($"Компонент '{_selectedParent.ComponentName}' является деталью и не может иметь спецификацию!",
+                            "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    if (type == ComponentType.Product)
+                    {
+                        MessageBox.Show("Нельзя добавить изделие в спецификацию!",
+                            "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    MyComponent newComponent = new(text, type);
+
+                    _fileManager.AddComponentToComponentList(newComponent);
+                    Components.Add(newComponent);
+
+                    _fileManager.AddComponentToSpecification(_selectedParent.ComponentName, newComponent.ComponentName);
+
+                    NameTextBox.Clear();
+                    TypeComboBox.SelectedItem = null;
+
+                    MessageBox.Show($"Компонент '{text}' создан и добавлен в спецификацию '{_selectedParent.ComponentName}'",
+                        "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
-
-                MyComponent newComponent = new(text, type);
-
-                _fileManager.AddComponentToComponentList(newComponent);
-                Components.Add(newComponent);
-
-                _fileManager.AddComponentToSpecification(_selectedParent.ComponentName, newComponent.ComponentName);
-
-                NameTextBox.Clear();
-                TypeComboBox.SelectedItem = null;
-
-                MessageBox.Show($"Компонент '{text}' создан и добавлен в спецификацию '{_selectedParent.ComponentName}'",
-                    "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -160,17 +166,12 @@ namespace Task2
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-            RefreshAllComponents();
+            RefreshData();
             MessageBox.Show("Данные обновлены", "Информация",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private void LoadData()
-        {
-            TypeComboBox.ItemsSource = Enum.GetValues(typeof(ComponentType));
-        }
-
-        private void RefreshAllComponents()
+        public void RefreshData()
         {
             Components.Clear();
             foreach (var comp in _fileManager.GetAllComponents())
@@ -178,5 +179,7 @@ namespace Task2
                 Components.Add(comp);
             }
         }
+
+        private void LoadData() => TypeComboBox.ItemsSource = Enum.GetValues(typeof(ComponentType));
     }
 }
