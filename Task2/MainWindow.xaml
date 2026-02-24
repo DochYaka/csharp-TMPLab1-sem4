@@ -12,17 +12,12 @@
         WindowStartupLocation="CenterScreen">
     <Grid>
         <StackPanel>
-            
-            <WrapPanel>
-                <Button Width="150" Height="35" 
-                        Content="Открыть" Click="OpenFile_Click"/>
 
-                <Button Width="150" Height="35" 
-                        Content="Компоненты" Click="ComponentList_Click"/>
-                
-                <Button Width="150" Height="35" 
-                        Content="Спецификация" Click="SpecificationList_Click"/>
-            </WrapPanel>
+            <Menu Height="25" VerticalAlignment="Top">
+                <MenuItem Header="Открыть" Click="OpenFile_Click"/>
+                <MenuItem Header="Компоненты" Click="ComponentList_Click"/>
+                <MenuItem Header="Спецификация" Click="SpecificationList_Click"/>
+            </Menu>
 
             <ContentControl x:Name="ContentArea" Margin="5"/>
             

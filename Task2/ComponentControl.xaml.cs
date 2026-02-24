@@ -178,6 +178,7 @@ namespace Task2
             {
                 Components.Add(comp);
             }
+            DataChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void LoadData() => TypeComboBox.ItemsSource = Enum.GetValues(typeof(ComponentType));

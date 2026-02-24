@@ -11,6 +11,8 @@ namespace Task2
     public partial class SpecificationControl : UserControl
     {
         private FileManager _fileManager;
+        private MyComponent? _selectedComponent;
+        private TreeViewItem? _selectedTreeNode;
 
         public SpecificationControl(FileManager fileManager)
         {
@@ -21,7 +23,7 @@ namespace Task2
             Loaded += (s, e) => BuildTree();
         }
 
-        public void BuildTree()
+        public void BuildTree(string? searchText = null)
         {
             treeView.Items.Clear();
 
@@ -30,6 +32,14 @@ namespace Task2
             try
             {
                 var allComponents = _fileManager.GetAllComponents().ToList();
+
+                // Фильтрация по поисковому запросу
+                if (!string.IsNullOrWhiteSpace(searchText))
+                {
+                    allComponents = allComponents
+                        .Where(c => c.ComponentName.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
 
                 var rootComponents = FindRootComponents(allComponents);
 
@@ -45,7 +55,7 @@ namespace Task2
                     {
                         var node = new TreeViewItem
                         {
-                            Header = $"{root.ComponentName} ({root.ComponentType.ToString()})",
+                            Header = $"{root.ComponentName} ({root.ComponentType})",
                             Tag = root
                         };
                         treeView.Items.Add(node);
@@ -106,7 +116,7 @@ namespace Task2
         {
             var node = new TreeViewItem
             {
-                Header = $"{graph.Value.ComponentName} ({graph.Value.ComponentType.ToString()})",
+                Header = $"{graph.Value.ComponentName} ({graph.Value.ComponentType})",
                 Tag = graph.Value
             };
 
@@ -118,6 +128,312 @@ namespace Task2
             return node;
         }
 
+        private void TreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (treeView.SelectedItem is TreeViewItem selectedItem && selectedItem.Tag is MyComponent component)
+            {
+                _selectedComponent = component;
+                _selectedTreeNode = selectedItem;
+            }
+            else
+            {
+                _selectedComponent = null;
+                _selectedTreeNode = null;
+            }
+        }
+
+        private void AddMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedComponent == null)
+            {
+                MessageBox.Show("Выберите компонент, к которому хотите добавить спецификацию", "Информация",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (_selectedComponent.ComponentType == ComponentType.Detail)
+            {
+                MessageBox.Show($"Компонент '{_selectedComponent.ComponentName}' является деталью и не может иметь спецификацию!",
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new Window
+            {
+                Title = "Добавление компонента в спецификацию",
+                Width = 400,
+                Height = 250,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this)
+            };
+
+            var stackPanel = new StackPanel { Margin = new Thickness(10) };
+
+            stackPanel.Children.Add(new TextBlock { Text = "Наименование компонента:"});
+            var nameTextBox = new TextBox {Padding = new Thickness(5) };
+            stackPanel.Children.Add(nameTextBox);
+
+            stackPanel.Children.Add(new TextBlock { Text = "Тип компонента:"});
+            var typeComboBox = new ComboBox
+            {
+                Padding = new Thickness(5),
+                ItemsSource = new[] { ComponentType.Node, ComponentType.Detail }
+            };
+            typeComboBox.SelectedIndex = 0;
+            stackPanel.Children.Add(typeComboBox);
+
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 15, 0, 0)
+            };
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                Width = 80,
+                Height = 30,
+                Margin = new Thickness(0, 0, 10, 0),
+                IsDefault = true
+            };
+
+            var cancelButton = new Button
+            {
+                Content = "Отмена",
+                Width = 80,
+                Height = 30,
+                IsCancel = true
+            };
+
+            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(cancelButton);
+            stackPanel.Children.Add(buttonPanel);
+
+            dialog.Content = stackPanel;
+
+            okButton.Click += (s, args) =>
+            {
+                try
+                {
+                    var name = nameTextBox.Text?.Trim();
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        MessageBox.Show("Введите наименование компонента", "Ошибка",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    var type = (ComponentType)typeComboBox.SelectedItem;
+
+                    var existingComponent = _fileManager.GetAllComponents()
+                        .FirstOrDefault(c => c.ComponentName.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+                    MyComponent newComponent;
+
+                    if (existingComponent != null)
+                    {
+                        newComponent = existingComponent;
+
+                        try
+                        {
+                            var graph = _fileManager.GetCompWithSpecs(_selectedComponent.ComponentName);
+                            if (IsComponentInGraph(graph, newComponent.ComponentName))
+                            {
+                                MessageBox.Show($"Компонент '{name}' уже есть в спецификации!",
+                                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                return;
+                            }
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        newComponent = new MyComponent(name, type);
+                        _fileManager.AddComponentToComponentList(newComponent);
+                    }
+
+                    _fileManager.AddComponentToSpecification(_selectedComponent.ComponentName, newComponent.ComponentName);
+
+                    dialog.DialogResult = true;
+                    dialog.Close();
+
+                    BuildTree(SearchTextBox.Text);
+
+                    MessageBox.Show($"Компонент '{name}' добавлен в спецификацию '{_selectedComponent.ComponentName}'",
+                        "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    DataChanged?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            };
+
+            cancelButton.Click += (s, args) => dialog.DialogResult = false;
+
+            dialog.ShowDialog();
+        }
+
+        private bool IsComponentInGraph(ComponentsGraph graph, string componentName)
+        {
+            if (graph.Value.ComponentName == componentName)
+                return true;
+
+            foreach (var spec in graph.Specifications)
+            {
+                if (IsComponentInGraph(spec, componentName))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void EditMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedComponent == null)
+            {
+                MessageBox.Show("Выберите компонент для изменения", "Информация",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new Window
+            {
+                Title = "Изменение компонента",
+                Width = 400,
+                Height = 200,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this)
+            };
+
+            var stackPanel = new StackPanel { Margin = new Thickness(10) };
+
+            stackPanel.Children.Add(new TextBlock
+            {
+                Text = $"Изменение компонента: {_selectedComponent.ComponentName}",
+                FontWeight = FontWeights.Bold
+            });
+
+            stackPanel.Children.Add(new TextBlock { Text = "Новое наименование:"});
+
+            var nameTextBox = new TextBox
+            {
+                Text = _selectedComponent.ComponentName,
+                Padding = new Thickness(5)
+            };
+            stackPanel.Children.Add(nameTextBox);
+
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 15, 0, 0)
+            };
+
+            var okButton = new Button
+            {
+                Content = "Сохранить",
+                Width = 100,
+                Height = 30,
+                Margin = new Thickness(0, 0, 10, 0),
+                IsDefault = true
+            };
+
+            var cancelButton = new Button
+            {
+                Content = "Отмена",
+                Width = 80,
+                Height = 30,
+                IsCancel = true
+            };
+
+            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(cancelButton);
+            stackPanel.Children.Add(buttonPanel);
+
+            dialog.Content = stackPanel;
+
+            okButton.Click += (s, args) =>
+            {
+                try
+                {
+                    var newName = nameTextBox.Text?.Trim();
+
+                    if (string.IsNullOrEmpty(newName))
+                    {
+                        MessageBox.Show("Введите наименование компонента", "Ошибка",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    if (newName == _selectedComponent.ComponentName)
+                    {
+                        dialog.Close();
+                        return;
+                    }
+
+                    var existingComponent = _fileManager.GetAllComponents()
+                        .FirstOrDefault(c => c.ComponentName.Equals(newName, StringComparison.OrdinalIgnoreCase)
+                                          && c != _selectedComponent);
+
+                    if (existingComponent != null)
+                    {
+                        MessageBox.Show($"Компонент с именем '{newName}' уже существует!",
+                            "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    string oldName = _selectedComponent.ComponentName;
+                    _selectedComponent.ComponentName = newName;
+
+                    dialog.DialogResult = true;
+                    dialog.Close();
+
+                    BuildTree(SearchTextBox.Text);
+
+                    MessageBox.Show($"Компонент '{oldName}' изменён на '{newName}'",
+                        "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    DataChanged?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при изменении: {ex.Message}", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            };
+
+            cancelButton.Click += (s, args) => dialog.DialogResult = false;
+
+            dialog.ShowDialog();
+        }
+
+        private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedComponent == null)
+            {
+                MessageBox.Show("Выберите компонент для удаления", "Информация",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"Удалить компонент '{_selectedComponent.ComponentName}'?\n" +
+                $"ВНИМАНИЕ: Если на этот компонент есть ссылки в спецификациях, удаление может привести к ошибкам!",
+                "Подтверждение удаления",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                MessageBox.Show("Функция удаления в разработке", "Информация",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
         private void BtnCreate_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -126,10 +442,12 @@ namespace Task2
                 _fileManager = FileManager.CreateFiles("components.dat", "specs.dat");
                 _fileManager.Test();
 
-                BuildTree();
+                BuildTree(SearchTextBox.Text);
 
                 MessageBox.Show("Тестовые данные созданы!", "Успех",
                     MessageBoxButton.OK, MessageBoxImage.Information);
+
+                DataChanged?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {
@@ -137,5 +455,12 @@ namespace Task2
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            BuildTree(SearchTextBox.Text);
+        }
+
+        public event EventHandler DataChanged;
     }
 }
