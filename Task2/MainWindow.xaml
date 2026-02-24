@@ -6,17 +6,26 @@
         xmlns:local="clr-namespace:Task2"
         mc:Ignorable="d"
         Title="Многосвязные списки"
-        Height="Auto"
-        Width="800"
-        SizeToContent="Height"
+        FontSize="20"
+        Height="auto"
+        Width="auto"
         WindowStartupLocation="CenterScreen">
     <Grid>
-        <WrapPanel>
-            <Button Width="150" Height="35" FontSize="20" Content="Открыть" Click="OpenFile_Click"/>
+        <StackPanel>
+            
+            <WrapPanel>
+                <Button Width="150" Height="35" 
+                        Content="Открыть" Click="OpenFile_Click"/>
 
-            <Button Width="150" Height="35" FontSize="20" Content="Компоненты" Click="ComponentList_Click"/>
+                <Button Width="150" Height="35" 
+                        Content="Компоненты" Click="ComponentList_Click"/>
+                
+                <Button Width="150" Height="35" 
+                        Content="Спецификация" Click="SpecificationList_Click"/>
+            </WrapPanel>
 
-            <Button Width="150" Height="35" FontSize="20" Content="Спецификация" Click="SpecificationList_Click"/>
-        </WrapPanel>
+            <ContentControl x:Name="ContentArea" Margin="5"/>
+            
+        </StackPanel>
     </Grid>
 </Window>
