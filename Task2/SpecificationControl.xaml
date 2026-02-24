@@ -13,13 +13,26 @@
         <StackPanel>
 
             <WrapPanel>
-                <TextBox Margin="10, 5, 0, 5" Width="350"/>
+                <TextBox x:Name="SearchTextBox" Margin="10, 5, 0, 5" Width="350" TextChanged="SearchTextBox_TextChanged"/>
 
                 <Button x:Name="btnCreate" Content="Создать тест" Click="BtnCreate_Click" Width="80" Margin="5"/>
             </WrapPanel>
 
-            <TreeView Height="auto" x:Name="treeView" Margin="5" BorderBrush="Gray" BorderThickness="1"/>
-
+            <TreeView Height="auto" x:Name="treeView" Margin="5" BorderBrush="Gray" BorderThickness="1"
+                      SelectedItemChanged="TreeView_SelectedItemChanged">
+                <TreeView.Resources>
+                    <ContextMenu x:Key="NodeContextMenu">
+                        <MenuItem Header="Добавить" Click="AddMenuItem_Click"/>
+                        <MenuItem Header="Изменить" Click="EditMenuItem_Click"/>
+                        <MenuItem Header="Удалить" Click="DeleteMenuItem_Click"/>
+                    </ContextMenu>
+                </TreeView.Resources>
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                        <Setter Property="ContextMenu" Value="{StaticResource NodeContextMenu}"/>
+                    </Style>
+                </TreeView.ItemContainerStyle>
+            </TreeView>
         </StackPanel>
     </Grid>
 </UserControl>
