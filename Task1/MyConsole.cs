@@ -1,4 +1,6 @@
 ﻿using Library;
+using Library.Components;
+using Library.Extensions;
 
 namespace Task1
 {
@@ -272,7 +274,16 @@ namespace Task1
         {
             if (manager == null)
                 throw new FileNotFoundException(fileNotFoundExc);
-            manager.GetCompWithSpecs(componentName);
+            var graph = manager.GetCompWithSpecs(componentName);
+
+            Console.WriteLine(graph.Value.ComponentName);
+
+            var action = new Action<MyComponent>(comp =>
+            {
+                Console.WriteLine(comp.ComponentName);
+            });
+
+            graph.EnumerateComponents(graph, action);
         }
         /// <summary>
         /// Команда выводит на экран построчно список компонентов.
