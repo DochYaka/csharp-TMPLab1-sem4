@@ -13,9 +13,9 @@
         <StackPanel>
 
             <WrapPanel>
-                <TextBox x:Name="SearchTextBox" Margin="10, 5, 0, 5" Width="350" TextChanged="SearchTextBox_TextChanged"/>
+                <TextBox x:Name="SearchTextBox" Margin="10, 5, 0, 5" Width="350"/>
 
-                <Button x:Name="btnCreate" Content="Создать тест" Click="BtnCreate_Click" Width="80" Margin="5"/>
+                <Button x:Name="btnCreate" Content="Найти" Click="Search_Click" Width="80" Margin="5"/>
             </WrapPanel>
 
             <TreeView Height="auto" x:Name="treeView" Margin="5" BorderBrush="Gray" BorderThickness="1"
