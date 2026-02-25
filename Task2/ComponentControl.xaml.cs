@@ -20,8 +20,6 @@ namespace Task2
 
         public ComponentControl(FileManager fileManager)
         {
-            InitializeComponent();
-
             _fileManager = fileManager ?? throw new ArgumentNullException(nameof(fileManager));
 
             Components = new ObservableCollection<MyComponent>(
@@ -29,6 +27,8 @@ namespace Task2
             );
 
             DataContext = this;
+
+            InitializeComponent();
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e) { LoadData(); }
@@ -153,7 +153,32 @@ namespace Task2
 
         private void Delete_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("В разработке", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            try
+            {
+                var component = (MyComponent)ComponentListView.SelectedItem;
+
+                if (ComponentListView.SelectedItem == null)
+                {
+                    MessageBox.Show($"Выберите компонент для удаления", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                else
+                {
+                    _fileManager.DeleteComponent(component.ComponentName);
+                    _fileManager.Truncate();
+
+                    RefreshData();
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{ex.Message}", "Ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)

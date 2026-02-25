@@ -1,5 +1,6 @@
 ﻿using Library;
 using Library.Components;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -14,6 +15,8 @@ namespace Task2
         private FileManager _fileManager;
         private MyComponent? _selectedComponent;
         private TreeViewItem? _selectedTreeNode;
+
+        private MyComponent parentComponent;
 
         private TreeViewItem? _lastHighlightedItem;
 
@@ -93,6 +96,7 @@ namespace Task2
                 try
                 {
                     var graph = _fileManager.GetCompWithSpecs(comp.ComponentName);
+                    
                     AddReferencedNames(graph, referencedNames);
                 }
                 catch
@@ -415,6 +419,8 @@ namespace Task2
 
         private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            var component = _selectedComponent;
+
             if (_selectedComponent == null)
             {
                 MessageBox.Show("Выберите компонент для удаления", "Информация",
@@ -431,8 +437,10 @@ namespace Task2
 
             if (result == MessageBoxResult.Yes)
             {
-                MessageBox.Show("Функция удаления в разработке", "Информация",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                _fileManager.DeleteComponentInSpecification(parentComponent.ComponentName, component.ComponentName);
+                _fileManager.Truncate();
+
+                BuildTree();
             }
         }
 

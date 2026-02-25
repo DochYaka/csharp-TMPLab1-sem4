@@ -1,6 +1,7 @@
-﻿using Library;
-using Library.Components;
+﻿using Library.Components;
 using Library.Extensions;
+using Library;
+using System.Text;
 
 namespace Task1
 {
@@ -28,25 +29,30 @@ namespace Task1
                     switch (commandText[0])
                     {
                         case "Create":
-                            if (commandText.Length != 2)
+                            if (commandText.Length == 2)
+                                commands.Create(commandText[1]);
+                            else if (commandText.Length == 3)
+                                commands.Create(commandText[1], Convert.ToUInt16(commandText[2]));
+                            else if (commandText.Length == 4)
+                                commands.Create(commandText[1], Convert.ToUInt16(commandText[2]), commandText[3]);
+                            else
                                 throw new ArgumentException(paramNotFoundExceptionText);
-
-                            commands.Create(commandText[1]);
                             break;
                         case "Open":
                             if (commandText.Length != 2)
                                 throw new ArgumentException(paramNotFoundExceptionText);
-
                             commands.Open(commandText[1]);
                             break;
                         case "Input":
-                            if (commandText.Length == 2)
+                            if (commandText.Length == 2 && commandText[1].Contains('/'))
                             {
                                 var tmp = commandText[1].Split('/');
                                 commands.Input(tmp[0], tmp[1]);
                             }
-                            if (commandText.Length == 3)
+                            else if (commandText.Length == 3)
                                 commands.Input(commandText[1], commandText[2].ToComponentType());
+                            else
+                                throw new ArgumentException(paramNotFoundExceptionText);
                             break;
                         case "Delete":
                             if (commandText.Length != 2)
@@ -97,6 +103,8 @@ namespace Task1
                             commands.Exit();
                             return;
                         case "Test":
+                            if (commandText.Length != 1)
+                                throw new ArgumentException(paramNotExistsExceptionText);
                             commands.Test();
                             break;
                         default:
@@ -186,20 +194,26 @@ namespace Task1
         /// устанавливая бит удаления в -1. Если на компонент имеются ссылки в спецификациях
         /// других компонент, эта команда вызывает ошибку.
         /// </summary>
-        /// <param name="companentName">Имя компонента</param>
-        public void Delete(string companentName)
+        /// <param name="component">Имя компонента</param>
+        public void Delete(string component)
         {
-            throw new NotImplementedException();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.DeleteComponent(component);
+            Console.WriteLine("Компонент готов к удалению!");
         }
         /// <summary>
         /// Команда логически удаляет комплектующее из спецификации компонента, устанавливая бит удаления в -1.
         /// Для детали эта команда вызывает ошибку.
         /// </summary>
-        /// <param name="companentName">Имя компонента</param>
-        /// <param name="accessoriesName">Имя комплектующего</param>
-        public void Delete(string companentName, string accessoriesName)
+        /// <param name="parentComponent">Имя компонента</param>
+        /// <param name="componentDeleted">Имя комплектующего</param>
+        public void Delete(string parentComponent, string componentDeleted)
         {
-            throw new NotImplementedException();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.DeleteComponentInSpecification(parentComponent, componentDeleted);
+            Console.WriteLine("Спецификация готов к удалению!");
         }
         /// <summary>
         /// Команда закрывает все файлы и завершает программу.
@@ -214,36 +228,68 @@ namespace Task1
         /// <param name="filename">Имя файла</param>
         public void Help(string? filename = null)
         {
-            throw new NotImplementedException();
+            StringBuilder help = new StringBuilder();
+            help.Append("Create (имя файла, [максимальная длина имени компонента], [имя файла спецификаций]) — если файл существует и сигнатура соответствует заданию, команда требует\n" +
+                "подтверждения на перезапись файла. При положительном ответе, файлы очищаются, после чего создаются все необходимые структуры в памяти и файлах на диске.\n" +
+                "После успешного выполнения команды файлы считаются открытыми для работы. Если сигнатура файла отсутствует или не соответствует заданию, команда вызывает ошибку.\n" +
+                "Расширение имени файла для списка компонентов — «.prd»., а для файла спецификаций — «.prs».\n\n");
+            help.Append("Open (имя файла) — открывает указанный файл и связанные с ним файлы в режиме rw, создает все необходимые структуры в памяти.\n" +
+                "Если сигнатура файла отсутствует или несоответствует заданию, команда вызывает ошибку.\n\n");
+            help.Append("Input (имя компонента, тип) — включает компонент в список. тип — одно из следующего: Изделие, Узел, Деталь.\n\n");
+            help.Append("Input (имя компонента/имя комплектующего) — включает комплектующее в спецификацию компонента. Имя комплектующего должно быть в списке,\n" +
+                "в противном случае и для детали эта команда вызывает ошибку.\n\n");
+            help.Append("Delete (имя компонента) — логически удаляет запись с именем компонента из списка, устанавливая бит удаления в -1.\n" +
+                "Если на компонент имеются ссылки в спецификациях других компонент, эта команда вызывает ошибку.\n\n");
+            help.Append("Delete (имя компонента/имя комплектующего) — логически удаляет комплектующее из спецификации компонента, устанавливая бит удаления в -1.\n" +
+                "Для детали эта команда вызывает ошибку.\n\n");
+            help.Append("Restore (имя компонента) — снимает бит удаления (присваивает значение 0) со всех записей, относящихся к заданному компоненту и ранее помеченных на удаление,\n" +
+                "а также восстанавливает алфавитный порядок, который мог быть нарушен из-за добавления новых записей.\n\n");
+            help.Append("Restore (*) — снимает бит удаления (присваивает значение 0) со всех записей, ранее помеченных на удаление, и восстанавливает алфавитный порядок,\n" +
+                "который мог быть нарушен из-за добавления новых записей.\n\n");
+            help.Append("Truncate — физически удаляет из списков записи, бит удаления которых установлен в -1, и перераспределяет записи списков таким образом,\n" +
+                "что все они становятся смежными, а свободная область располагается в конце файлов. Корректирует указатель на свободную область файла.\n\n");
+            help.Append("Print (имя компонента) — выводит на экран состав компонента (спецификацию) в виде (для детали эта команда вызывает ошибку):" +
+                "\nКомпонент\n  |\n  Узел\n  | |\n  | Деталь\n  |\n  Деталь\n\n");
+            help.Append("Print (*) — выводит на экран построчно список компонентов в формате:\n" +
+                "Наименование\tТип\n\n");
+            help.Append("Help [имя файла] — выводит на экран или в указанный файл список команд.\n\n");
+            help.Append("Exit — закрывает все файлы и завершает программу. Файлы при завершении программы не уничтожаются.\n");
+
+            Console.Write(help.ToString());
         }
         /// <summary>
         /// Команда включает компонент в список.
         /// </summary>
-        /// <param name="companentName">Имя компонента</param>
+        /// <param name="component">Имя компонента</param>
         /// <param name="type">Тип компанента</param>
-        public void Input(string companentName, ComponentType type)
+        public void Input(string component, ComponentType type)
         {
-
-            throw new NotImplementedException();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.AddComponentToComponentList(new(component, type));
+            Console.WriteLine("Компонент добавлен!");
         }
         /// <summary>
         /// Команда включает комплектующее в
         /// спецификацию компонента. Имя комплектующего должно быть в списке, в противном
         /// случае и для детали эта команда вызывает ошибку.
         /// </summary>
-        /// <param name="companentName">Имя компонента</param>
-        /// <param name="detailName">Имя комплектующего</param>
-        public void Input(string companentName, string detailName)
+        /// <param name="parentComponent">Имя компонента</param>
+        /// <param name="componentAdded">Имя комплектующего</param>
+        public void Input(string parentComponent, string componentAdded)
         {
-            throw new NotImplementedException();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.AddComponentToSpecification(parentComponent, componentAdded);
+            Console.WriteLine("Компонент добавлен в спецификацию!");
         }
         /// <summary>
         /// Команда снимает бит удаления (присваивает значение 0) со всех
         /// записей, относящихся к заданному компоненту и ранее помеченных на удаление, а также
         /// восстанавливает алфавитный порядок, который мог быть нарушен из-за добавления новых записей.
         /// </summary>
-        /// <param name="companentName">Имя компонента</param>
-        public void Restore(string companentName)
+        /// <param name="componentName">Имя компонента</param>
+        public void Restore(string componentName)
         {
             throw new NotImplementedException();
         }
@@ -278,12 +324,23 @@ namespace Task1
 
             Console.WriteLine(graph.Value.ComponentName);
 
-            var action = new Action<MyComponent>(comp =>
+            var action = new Action<MyComponent, int>((comp, depth) =>
             {
-                Console.WriteLine(comp.ComponentName);
+                var str = "  |";
+                var sb = new StringBuilder();
+
+                // Первая строка
+                sb.Append(string.Concat(Enumerable.Repeat(str, depth)));
+                sb.AppendLine();
+
+                // Вторая строка
+                sb.Append(string.Concat(Enumerable.Repeat(str, depth - 1)));
+                sb.AppendLine("  " + comp.ComponentName);
+
+                Console.Write(sb.ToString());
             });
 
-            graph.EnumerateComponents(graph, action);
+            graph.EnumerateComponents(action);
         }
         /// <summary>
         /// Команда выводит на экран построчно список компонентов.
@@ -315,22 +372,30 @@ namespace Task1
         /// </summary>
         public void Restore()
         {
-            throw new NotImplementedException();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.RestoreAllComponents();
         }
         /// <summary>
         /// Команда физически удаляет из списков записи, бит удаления которых установлен в
         /// -1, и перераспределяет записи списков таким образом, что все они становятся смежными, а
-        /// свободная область располагается в конце файлов.Корректирует указатель на свободную
+        /// свободная область располагается в конце файлов. Корректирует указатель на свободную
         /// область файла;
         /// </summary>
         public void Truncate()
         {
-            throw new NotImplementedException();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.Truncate();
+            Console.WriteLine("Все помеченные файлы на удаление были удалены!");
         }
 
         public void Test()
         {
-            manager?.Test();
+            if (manager == null)
+                throw new FileNotFoundException(fileNotFoundExc);
+            manager.Test();
+            Print("Изделие1");
         }
 
         public void Dispose()

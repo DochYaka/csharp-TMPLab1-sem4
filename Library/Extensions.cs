@@ -2,6 +2,7 @@
 using Library.Headers;
 using Library.Records;
 
+
 namespace Library.Extensions
 {
     public static class MyComponentExtentions
@@ -165,6 +166,82 @@ namespace Library.Extensions
             });
 
             header.EnumerateRecord(action1);
+        }
+
+        public static void EnumerateAllSpecs(this SpecificationRecord record, Action<SpecificationRecord> action)
+        {
+            while (record != null)
+            {
+                action.Invoke(record);
+
+                if (record.ComponentRecord!.SpecificationRecord != null)
+                    EnumerateAllSpecs(record.ComponentRecord.SpecificationRecord, action);
+
+                record = record.SpecificationNext;
+            }
+        }
+
+        public static bool EnumerateAllSpecsWithCondition(this SpecificationRecord record, Func<SpecificationRecord, bool> action)
+        {
+            while (record != null)
+            {
+                if (action.Invoke(record))
+                    return true;
+
+                if (record.ComponentRecord!.SpecificationRecord != null)
+                    return EnumerateAllSpecsWithCondition(record.ComponentRecord.SpecificationRecord, action);
+
+                record = record.SpecificationNext;
+            }
+
+            return false;
+        }
+    }
+
+    public static class ComponentsGraphExtensions
+    {
+        public static List<List<string>>? AllSpecsToStrings(this ComponentsGraph graph)
+        {
+            if (graph.Specifications.Count == 0)
+                return null;
+
+            List<List<string>> res = new();
+
+            var strings = graph.SpecsToStrings().ToList();
+            if (strings.Count != 0)
+                res.Add(strings);
+
+            foreach (var item in graph.Specifications)
+            {
+                var list = item.AllSpecsToStrings();
+                if (list != null)
+                    res = res.Concat(list).ToList();
+            }
+
+            return res;
+        }
+
+        public static IEnumerable<string> SpecsToStrings(this ComponentsGraph graph)
+        {
+            if (graph.Specifications.Count == 0)
+                yield break;
+
+            foreach (var item in graph.Specifications)
+            {
+                yield return item.Value.ComponentName;
+            }
+        }
+
+        public static void EnumerateComponents(this ComponentsGraph graph, Action<MyComponent, int> action, int depth = 0)
+        {
+            if (graph.Specifications.Count == 0)
+                return;
+            depth++;
+            foreach (var item in graph.Specifications)
+            {
+                action.Invoke(item.Value, depth);
+                EnumerateComponents(item, action, depth);
+            }
         }
     }
 }

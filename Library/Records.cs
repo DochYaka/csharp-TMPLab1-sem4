@@ -1,8 +1,5 @@
 ﻿using Library.Components;
 using Library.Headers;
-using System;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Text;
 
 namespace Library.Records

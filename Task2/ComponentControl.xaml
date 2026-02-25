@@ -33,6 +33,9 @@
                 <Button Width="160" Height="30"
                         Content="Удалить"
                         Click="Delete_Click" x:Name="DeleteButton" IsEnabled="False"/>
+
+
+
             </WrapPanel>
 
             <ListView Width="800" ItemsSource="{Binding Components}"

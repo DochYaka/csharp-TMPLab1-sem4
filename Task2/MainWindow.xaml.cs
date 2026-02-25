@@ -26,9 +26,6 @@ namespace Task2
             try
             {
                 _fileManager?.Dispose();
-                _fileManager = FileManager.CreateFiles("components.dat", "specs.dat");
-
-                _fileManager.Test();
 
                 CreateControls();
 
@@ -57,7 +54,6 @@ namespace Task2
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "Component files (*.dat)|*.dat|All files (*.*)|*.*",
                 InitialDirectory = _downloadPath
             };
 
@@ -71,7 +67,6 @@ namespace Task2
                     _fileManager = FileManager.OpenFiles(fileName);
 
                     CreateControls();
-                    ComponentList_Click(null, null);
 
                     MessageBox.Show($"Файл {fileName} загружен");
                 }
