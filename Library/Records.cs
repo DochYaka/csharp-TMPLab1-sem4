@@ -57,7 +57,7 @@ namespace Library.Records
 
         public int SpecificationRecordPtr { get; set; } // Указатель на первую запись в спецификации
 
-        public ComponentRecord(MyComponent component) : base()
+        public ComponentRecord(MyComponent component)
         {
             SpecificationRecordPtr = -1;
 
@@ -150,8 +150,7 @@ namespace Library.Records
         public ushort Quantity { get; set; } // Кратность вхождения
         public int SpecificationNextPtr { get; set; }
 
-
-        public SpecificationRecord(ushort quantity = 2) : base()
+        public SpecificationRecord(ushort quantity = 2)
         {
             ComponentRecordPtr = -1;
             Quantity = quantity;

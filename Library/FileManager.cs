@@ -352,9 +352,6 @@ namespace Library
                     }
                 }
             }
-
-            //var specRec = _specHeader.FirstRecord;
-
         }
 
         private void TruncateSpecifications(SpecificationRecord? record)
