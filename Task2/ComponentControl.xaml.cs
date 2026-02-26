@@ -170,7 +170,6 @@ namespace Task2
 
                     RefreshData();
                 }
-
             }
             catch (Exception ex)
             {

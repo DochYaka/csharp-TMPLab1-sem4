@@ -419,8 +419,6 @@ namespace Task2
 
         private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            var component = _selectedComponent;
-
             if (_selectedComponent == null)
             {
                 MessageBox.Show("Выберите компонент для удаления", "Информация",
@@ -428,20 +426,76 @@ namespace Task2
                 return;
             }
 
+            MyComponent? parentComponent = FindParentComponent(_selectedComponent.ComponentName, treeView.Items);
+
+            string message;
+            if (parentComponent != null)
+            {
+                message = $"Удалить компонент '{_selectedComponent.ComponentName}' из спецификации компонента '{parentComponent.ComponentName}'?";
+            }
+            else
+            {
+                message = $"Удалить компонент '{_selectedComponent.ComponentName}' из списка компонентов?\n" +
+                          $"ВНИМАНИЕ: Если у этого компонента есть спецификации, они тоже будут удалены!";
+            }
+
             var result = MessageBox.Show(
-                $"Удалить компонент '{_selectedComponent.ComponentName}'?\n" +
-                $"ВНИМАНИЕ: Если на этот компонент есть ссылки в спецификациях, удаление может привести к ошибкам!",
+                message,
                 "Подтверждение удаления",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
             if (result == MessageBoxResult.Yes)
             {
-                _fileManager.DeleteComponentInSpecification(parentComponent.ComponentName, component.ComponentName);
-                _fileManager.Truncate();
+                try
+                {
+                    if (parentComponent != null)
+                    {
+                        _fileManager.DeleteComponentInSpecification(parentComponent.ComponentName, _selectedComponent.ComponentName);
+                        MessageBox.Show($"Компонент '{_selectedComponent.ComponentName}' удален из спецификации '{parentComponent.ComponentName}'",
+                            "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        _fileManager.DeleteComponent(_selectedComponent.ComponentName);
+                        MessageBox.Show($"Компонент '{_selectedComponent.ComponentName}' полностью удален из системы",
+                            "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
 
-                BuildTree();
+                    _fileManager.Truncate();
+
+                    BuildTree(SearchTextBox.Text);
+
+                    DataChanged?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при удалении: {ex.Message}", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
+        }
+
+        private MyComponent? FindParentComponent(string childName, ItemCollection items)
+        {
+            foreach (TreeViewItem item in items)
+            {
+                if (item.Tag is MyComponent parent)
+                {
+                    foreach (TreeViewItem child in item.Items)
+                    {
+                        if (child.Tag is MyComponent comp && comp.ComponentName == childName)
+                        {
+                            return parent;
+                        }
+                    }
+
+                    var found = FindParentComponent(childName, item.Items);
+                    if (found != null)
+                        return found;
+                }
+            }
+            return null;
         }
 
         private void Search_Click(object sender, RoutedEventArgs e)
