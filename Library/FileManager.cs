@@ -1,6 +1,9 @@
 ﻿using Library.Components;
+using Library.Exceptions;
 using Library.Headers;
 using Library.Records;
+using Library.Extensions;
+using System.ComponentModel;
 
 namespace Library
 {
@@ -50,7 +53,7 @@ namespace Library
                     record.ComponentRecord = tmp;
                 }
             });
-            specHeader.EnumerateSpecificationRecords(action1);
+            specHeader.EnumerateSpecRecords(action1);
         }
 
         private void UpdateCompFile()
@@ -211,17 +214,23 @@ namespace Library
             if (compAdded == null)
                 throw new Exception($"{componentAdded}: {_compNotFoundExc}");
 
-            comp.SpecificationRecord?.EnumerateAllCompSpecs(rec =>
+            if (comp.SpecificationRecord != null)
             {
-                if (rec.ComponentRecord!.DataArea.ComponentName == componentAdded)
-                    throw new Exception("Нельзя добавить в спецификацию уже добавленный компонент!");
-            });
+                comp.EnumerateAllCompSpecs(rec =>
+                {
+                    if (rec.ComponentRecord!.DataArea.ComponentName == componentAdded)
+                        throw new Exception("Нельзя добавить в спецификацию уже добавленный компонент!");
+                });
+            }
 
-            compAdded.SpecificationRecord?.EnumerateAllCompSpecs(rec =>
+            if (compAdded.SpecificationRecord != null)
             {
-                if (rec.ComponentRecord!.DataArea.ComponentName == parentComponent)
-                    throw new Exception("Нельзя добавить в спецификацию родительский компонент!");
-            });
+                compAdded.EnumerateAllCompSpecs(rec =>
+                {
+                    if (rec.ComponentRecord!.DataArea.ComponentName == parentComponent)
+                        throw new Exception("Нельзя добавить в спецификацию родительский компонент!");
+                });
+            }
 
             var spec = new SpecificationRecord()
             {
@@ -260,8 +269,7 @@ namespace Library
 
             comp.IsDeleted = true;
 
-
-            _specHeader.EnumerateSpecificationRecords(rec =>
+            _specHeader.EnumerateSpecRecords(rec =>
             {
                 if (!rec.IsDeleted && rec.ComponentRecord!.DataArea.ComponentName == component)
                 {
@@ -287,7 +295,7 @@ namespace Library
             if (compDeleted == null)
                 throw new ArgumentException($"{componentDeleted}: {_compNotFoundExc}");
 
-            var condition = parentComp.SpecificationRecord.EnumerateAllCompSpecsWithCondition(rec =>
+            var condition = parentComp.EnumerateAllCompSpecsWithCondition(rec =>
             {
                 if (rec.ComponentRecord!.DataArea.ComponentName == componentDeleted)
                 {
@@ -299,7 +307,7 @@ namespace Library
                 return false;
             });
 
-            if (!condition)
+            if (condition == null || !(bool)condition)
                 throw new Exception("Компонент в спецификации не найден");
 
             UpdateSpecFile();
@@ -314,7 +322,7 @@ namespace Library
             });
 
             _compHeader.EnumerateRecords(action);
-            _specHeader.EnumerateSpecificationRecords(action);
+            _specHeader.EnumerateSpecRecords(action);
         }
 
         public void Truncate()
@@ -325,40 +333,83 @@ namespace Library
                     TruncateComponent(rec);
             });
 
+            _specHeader.EnumerateSpecRecords(rec =>
+            {
+                if (rec.IsDeleted)
+                    TruncateSpecification(rec);
+            });
+
+            UpdateFiles();
         }
 
-        private void TruncateComponent(ComponentRecord component)
+        public void TruncateComponent(ComponentRecord component)
         {
             if (!component.IsDeleted)
                 throw new Exception("Компонент не помечен на удаление!");
 
             if (component.SpecificationRecord != null)
-            {
                 TruncateComponentSpecifications(component.SpecificationRecord);
-            }
 
             try
             {
-                var predComp = _compHeader.GetPredRecordByPtr(_compHeader.GetRecPtr(component));
+                var predComp = _compHeader.GetPrevRecord(component);
                 if (predComp == null)
                     throw new Exception("Что то пошло не так");
                 predComp.NextRecord = component.NextRecord;
+                predComp.NextRecordPtr = component.NextRecordPtr;
             }
             catch (FirstComponentInListException)
             {
-                _compHeader.FirstRecord = null;
-                _compHeader.FirstRecordPtr = -1;
-                return;
+                _compHeader.FirstRecord = component.NextRecord;
+                _compHeader.FirstRecordPtr = component.NextRecordPtr;
             }
             catch
             {
                 throw;
             }
+
+            UpdateFiles();
         }
 
-        private void TruncateSpecification(SpecificationRecord spec)
+        public void TruncateSpecification(SpecificationRecord specification)
         {
+            if (!specification.IsDeleted)
+                throw new Exception("Спецификация не помечена на удаление!");
+            try
+            {
+                var predSpec = _specHeader.GetPrevSpec(specification);
+                if (predSpec == null)
+                    throw new Exception("Что то пошло не так");
+                predSpec.SpecificationNext = specification.SpecificationNext;
+                predSpec.SpecificationNextPtr = specification.SpecificationNextPtr;
+            }
+            catch (FirstComponentInListException)
+            {
+                var comp = _compHeader.GetCompWithSpec(specification);
+                if (comp == null)
+                    throw new Exception("Что то пошло не так");
+                comp.SpecificationRecord = null;
+                comp.SpecificationRecordPtr = -1;
+                try
+                {
+                    var predRec = _specHeader.GetPrevRecord(specification);
+                    if (predRec == null)
+                        throw new Exception("Что то пошло не так");
+                    predRec.NextRecord = specification.NextRecord;
+                    predRec.NextRecordPtr = specification.NextRecordPtr;
+                }
+                catch
+                {
+                    _specHeader.FirstRecord = specification.NextRecord;
+                    _specHeader.FirstRecordPtr = specification.NextRecordPtr;
+                }
+            }
+            catch
+            {
+                throw;
+            }
 
+            UpdateFiles();
         }
 
         private void TruncateComponentSpecifications(SpecificationRecord? record)
@@ -368,7 +419,7 @@ namespace Library
 
             try
             {
-                var predRec = _specHeader.GetPredRecordByPtr(_specHeader.GetRecPtr(record));
+                var predRec = _specHeader.GetPrevRecordByPtr(_specHeader.GetRecordPtr(record));
                 if (predRec == null)
                     throw new Exception("Что то пошло не так");
                 predRec.NextRecord = record.NextRecord;
@@ -376,8 +427,8 @@ namespace Library
             }
             catch (FirstComponentInListException)
             {
-                _specHeader.FirstRecord = null;
-                _specHeader.FirstRecordPtr = -1;
+                _specHeader.FirstRecord = record.NextRecord;
+                _specHeader.FirstRecordPtr = record.NextRecordPtr;
             }
             catch
             {
@@ -389,6 +440,8 @@ namespace Library
                 TruncateComponentSpecifications(record.ComponentRecord!.SpecificationRecord);
                 record = record.SpecificationNext;
             }
+
+            UpdateSpecFile();
         }
 
         public void Test()
@@ -410,6 +463,9 @@ namespace Library
             AddComponentToSpecification(myComponent1.ComponentName, myComponent4.ComponentName);
             AddComponentToComponentList(myComponent5);
             AddComponentToSpecification(myComponent2.ComponentName, myComponent5.ComponentName);
+
+            DeleteComponentInSpecification(myComponent2.ComponentName, myComponent5.ComponentName);
+            DeleteComponent(myComponent5.ComponentName);
         }
 
         public IEnumerable<MyComponent> GetAllComponents()
@@ -422,24 +478,23 @@ namespace Library
             var myComp = _compHeader.GetCompRecByName(component);
             if (myComp == null)
                 throw new ArgumentException(_compNotFoundExc);
+
             if (myComp.DataArea.ComponentType == ComponentType.Detail)
                 throw new Exception("У детали нет спецификации!");
 
-            ComponentsGraph specification = AddAllSpecsToGraph(myComp);
-
-            return specification;
+            return BuildGraph(myComp);
         }
 
-        private ComponentsGraph AddAllSpecsToGraph(ComponentRecord record)
+        private ComponentsGraph BuildGraph(ComponentRecord record)
         {
             var res = new ComponentsGraph(record.DataArea);
 
-            FindAllSpecs(record.SpecificationRecord, res);
+            AddAllSpecsToGraph(record.SpecificationRecord, res);
 
             return res;
         }
 
-        private void FindAllSpecs(SpecificationRecord? record, ComponentsGraph graph)
+        private void AddAllSpecsToGraph(SpecificationRecord? record, ComponentsGraph graph)
         {
             while (record != null)
             {
@@ -447,7 +502,7 @@ namespace Library
                 graph.Specifications.Add(tmp);
 
                 if (record.ComponentRecord.SpecificationRecord != null)
-                    FindAllSpecs(record.ComponentRecord.SpecificationRecord, tmp);
+                    AddAllSpecsToGraph(record.ComponentRecord.SpecificationRecord, tmp);
 
                 record = record.SpecificationNext;
             }
@@ -457,19 +512,6 @@ namespace Library
         {
             _compFile?.Dispose();
             _specFile?.Dispose();
-        }
-    }
-
-    public class ComponentsGraph
-    {
-        public MyComponent Value { get; set; }
-
-        public List<ComponentsGraph> Specifications { get; set; }
-
-        public ComponentsGraph(MyComponent value)
-        {
-            Value = value;
-            Specifications = new();
         }
     }
 }

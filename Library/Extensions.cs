@@ -1,11 +1,10 @@
-﻿using Library;
-using Library.Components;
+﻿using Library.Components;
+using Library.Exceptions;
 using Library.Headers;
 using Library.Records;
-using Library.Exceptions;
 using System.Runtime.Intrinsics.X86;
 
-namespace MyConsole2.Extensions
+namespace Library.Extensions
 {
     public static class MyComponentExtentions
     {
@@ -49,7 +48,7 @@ namespace MyConsole2.Extensions
             return null;
         }
 
-        public static T? GetPredRecordByPtr<T>(this Header<T> header, int ptr) where T : Record<T>
+        public static T? GetPrevRecordByPtr<T>(this Header<T> header, int ptr) where T : Record<T>
         {
             if (header.FirstRecord != null)
             {
@@ -64,7 +63,12 @@ namespace MyConsole2.Extensions
             return null;
         }
 
-        public static int GetRecPtr<T>(this Header<T> header, T record) where T : Record<T>
+        public static T? GetPrevRecord<T>(this Header<T> header, T record) where T : Record<T>
+        {
+            return header.GetPrevRecordByPtr(header.GetRecordPtr(record));
+        }
+
+        public static int GetRecordPtr<T>(this Header<T> header, T record) where T : Record<T>
         {
             if (header.FirstRecord != null)
             {
@@ -110,6 +114,21 @@ namespace MyConsole2.Extensions
                 header.FirstRecord = record;
                 header.FirstRecordPtr = record.GetHashCode();
             }
+        }
+
+        public static T? FindRecord<T>(this Header<T> header, Func<T, bool> condition) where T : Record<T>
+        {
+            if (header.FirstRecord != null)
+            {
+                var tmp = header.FirstRecord;
+                while (tmp != null)
+                {
+                    if (condition.Invoke(tmp))
+                        return tmp;
+                    tmp = tmp.NextRecord;
+                }
+            }
+            return null;
         }
     }
 
@@ -182,23 +201,15 @@ namespace MyConsole2.Extensions
 
             return res;
         }
-    }
 
-    public static class SpecificationRecordListExtensions
-    {
-        public static void EnumerateSpecificationRecords(this SpecificationHeader header, Action<SpecificationRecord> action)
+        public static void EnumerateAllCompSpecs(this ComponentRecord record, Action<SpecificationRecord> action)
         {
-            header.EnumerateRecords(record => {
-                var tmp = record;
-                while (tmp != null)
-                {
-                    action.Invoke(tmp);
-                    tmp = tmp.SpecificationNext;
-                }
-            });
+            if (record.SpecificationRecord == null)
+                return;
+            EnumerateAllCompSpecs(record.SpecificationRecord, action);
         }
 
-        public static void EnumerateAllCompSpecs(this SpecificationRecord record, Action<SpecificationRecord> action)
+        private static void EnumerateAllCompSpecs(SpecificationRecord record, Action<SpecificationRecord> action)
         {
             while (record != null)
             {
@@ -211,7 +222,14 @@ namespace MyConsole2.Extensions
             }
         }
 
-        public static bool EnumerateAllCompSpecsWithCondition(this SpecificationRecord record, Func<SpecificationRecord, bool> action)
+        public static bool? EnumerateAllCompSpecsWithCondition(this ComponentRecord record, Func<SpecificationRecord, bool> action)
+        {
+            if (record.SpecificationRecord == null)
+                return null;
+            return EnumerateAllCompSpecsWithCondition(record.SpecificationRecord, action);
+        }
+
+        private static bool? EnumerateAllCompSpecsWithCondition(SpecificationRecord record, Func<SpecificationRecord, bool> action)
         {
             while (record != null)
             {
@@ -226,16 +244,77 @@ namespace MyConsole2.Extensions
             return false;
         }
 
-        //public static int GetPredSpecPtr(this SpecificationHeader header, SpecificationRecord record)
-        //{
-        //    if (header.GetRecPtr(record) != -1)
-        //        throw new FirstComponentInListException();
+        public static ComponentRecord? GetCompWithSpec(this ComponentHeader header, SpecificationRecord specificationRecord)
+        {
+            return header.FindRecord(record =>
+            {
+                return ReferenceEquals(record.SpecificationRecord, specificationRecord);
+            });
+        }
+    }
 
-        //    while (record.SpecificationNext != null)
-        //    {
-        //        //if()
-        //    }
-        //}
+    public static class SpecificationRecordListExtensions
+    {
+        public static void EnumerateSpecRecords(this SpecificationHeader header, Action<SpecificationRecord> action)
+        {
+            header.EnumerateRecords(record => {
+                var tmp = record;
+                while (tmp != null)
+                {
+                    action.Invoke(tmp);
+                    tmp = tmp.SpecificationNext;
+                }
+            });
+        }
+
+        private static SpecificationRecord? FindFirstSpecRecord(this SpecificationHeader header, SpecificationRecord record)
+        {
+            if (header.GetRecordPtr(record) != -1)
+                return record;
+
+            if (header == null)
+                return null;
+
+            if (header.FirstRecord == null)
+                return null;
+
+            var tmp = header.FirstRecord;
+
+            while (tmp != null)
+            {
+                var tmpSpec = tmp;
+                while (tmpSpec!.SpecificationNext != null)
+                {
+                    if (ReferenceEquals(tmpSpec.SpecificationNext, record))
+                        return tmp;
+
+                    tmpSpec = tmp.SpecificationNext;
+                }
+                tmp = tmp.NextRecord;
+            }
+
+            return null;
+
+        }
+
+        public static SpecificationRecord? GetPrevSpec(this SpecificationHeader header, SpecificationRecord record)
+        {
+            if (header.GetRecordPtr(record) != -1)
+                throw new FirstComponentInListException();
+
+            var tmp = header.FindFirstSpecRecord(record);
+            if (tmp == null)
+                return null;
+
+            while (tmp.SpecificationNext != null)
+            {
+                if (ReferenceEquals(tmp.SpecificationNext, record))
+                    return tmp;
+                tmp = tmp.SpecificationNext;
+            }
+
+            return null;
+        }
     }
 
     public static class ComponentsGraphExtensions

@@ -26,5 +26,16 @@ namespace Library.Components
         Detail, Product, Node
     }
 
+    public class ComponentsGraph
+    {
+        public MyComponent Value { get; set; }
 
+        public List<ComponentsGraph> Specifications { get; set; }
+
+        public ComponentsGraph(MyComponent value)
+        {
+            Value = value;
+            Specifications = new();
+        }
+    }
 }
