@@ -1,7 +1,6 @@
 ﻿using Library.Components;
 using Library.Headers;
 using Library.Records;
-using Library.Extensions;
 
 namespace Library
 {
@@ -39,7 +38,7 @@ namespace Library
                     record.SpecificationRecord = tmp;
                 }
             });
-            compHeader.EnumerateRecord(action);
+            compHeader.EnumerateRecords(action);
 
             var action1 = new Action<SpecificationRecord>(record =>
             {
@@ -51,7 +50,7 @@ namespace Library
                     record.ComponentRecord = tmp;
                 }
             });
-            specHeader.EnumerateSpecification(action1);
+            specHeader.EnumerateSpecificationRecords(action1);
         }
 
         private void UpdateCompFile()
@@ -212,13 +211,13 @@ namespace Library
             if (compAdded == null)
                 throw new Exception($"{componentAdded}: {_compNotFoundExc}");
 
-            comp.SpecificationRecord?.EnumerateAllSpecs(rec =>
+            comp.SpecificationRecord?.EnumerateAllCompSpecs(rec =>
             {
                 if (rec.ComponentRecord!.DataArea.ComponentName == componentAdded)
                     throw new Exception("Нельзя добавить в спецификацию уже добавленный компонент!");
             });
 
-            compAdded.SpecificationRecord?.EnumerateAllSpecs(rec =>
+            compAdded.SpecificationRecord?.EnumerateAllCompSpecs(rec =>
             {
                 if (rec.ComponentRecord!.DataArea.ComponentName == parentComponent)
                     throw new Exception("Нельзя добавить в спецификацию родительский компонент!");
@@ -262,7 +261,7 @@ namespace Library
             comp.IsDeleted = true;
 
 
-            _specHeader.EnumerateSpecification(rec =>
+            _specHeader.EnumerateSpecificationRecords(rec =>
             {
                 if (!rec.IsDeleted && rec.ComponentRecord!.DataArea.ComponentName == component)
                 {
@@ -288,7 +287,7 @@ namespace Library
             if (compDeleted == null)
                 throw new ArgumentException($"{componentDeleted}: {_compNotFoundExc}");
 
-            var condition = parentComp.SpecificationRecord.EnumerateAllSpecsWithCondition(rec =>
+            var condition = parentComp.SpecificationRecord.EnumerateAllCompSpecsWithCondition(rec =>
             {
                 if (rec.ComponentRecord!.DataArea.ComponentName == componentDeleted)
                 {
@@ -314,58 +313,82 @@ namespace Library
                     rec.IsDeleted = false;
             });
 
-            _compHeader.EnumerateRecord(action);
-            _specHeader.EnumerateSpecification(action);
+            _compHeader.EnumerateRecords(action);
+            _specHeader.EnumerateSpecificationRecords(action);
         }
 
         public void Truncate()
         {
-
-            var compRec = _compHeader.FirstRecord;
-
-            if (compRec != null)
+            _compHeader.EnumerateRecords(rec =>
             {
-                if (compRec.NextRecord == null)
-                {
-                    if (compRec.IsDeleted)
-                    {
-                        TruncateSpecifications(compRec.SpecificationRecord);
-                        _compHeader.FirstRecord = null;
-                        _compHeader.FirstRecordPtr = -1;
-                    }
-                }
-                else
-                {
-                    while (compRec!.NextRecord != null)
-                    {
-                        if (compRec.NextRecord.IsDeleted)
-                        {
-                            TruncateSpecifications(compRec.SpecificationRecord);
-                            compRec.NextRecordPtr = compRec.NextRecord.NextRecordPtr;
-                            compRec.NextRecord = compRec.NextRecord.NextRecord;
-                        }
-                        else
-                        {
-                            compRec = compRec.NextRecord;
-                        }
-                        
-                    }
-                }
+                if (rec.IsDeleted)
+                    TruncateComponent(rec);
+            });
+
+        }
+
+        private void TruncateComponent(ComponentRecord component)
+        {
+            if (!component.IsDeleted)
+                throw new Exception("Компонент не помечен на удаление!");
+
+            if (component.SpecificationRecord != null)
+            {
+                TruncateComponentSpecifications(component.SpecificationRecord);
+            }
+
+            try
+            {
+                var predComp = _compHeader.GetPredRecordByPtr(_compHeader.GetRecPtr(component));
+                if (predComp == null)
+                    throw new Exception("Что то пошло не так");
+                predComp.NextRecord = component.NextRecord;
+            }
+            catch (FirstComponentInListException)
+            {
+                _compHeader.FirstRecord = null;
+                _compHeader.FirstRecordPtr = -1;
+                return;
+            }
+            catch
+            {
+                throw;
             }
         }
 
-        private void TruncateSpecifications(SpecificationRecord? record)
+        private void TruncateSpecification(SpecificationRecord spec)
+        {
+
+        }
+
+        private void TruncateComponentSpecifications(SpecificationRecord? record)
         {
             if (record == null)
                 return;
 
-            while (record != null)
+            try
             {
-                TruncateSpecifications(record.ComponentRecord!.SpecificationRecord);
-                record = record.SpecificationNext;
+                var predRec = _specHeader.GetPredRecordByPtr(_specHeader.GetRecPtr(record));
+                if (predRec == null)
+                    throw new Exception("Что то пошло не так");
+                predRec.NextRecord = record.NextRecord;
+                predRec.NextRecordPtr = record.NextRecordPtr;
+            }
+            catch (FirstComponentInListException)
+            {
+                _specHeader.FirstRecord = null;
+                _specHeader.FirstRecordPtr = -1;
+            }
+            catch
+            {
+                throw;
             }
 
-
+            while (record != null)
+            {
+                TruncateComponentSpecifications(record.ComponentRecord!.SpecificationRecord);
+                record = record.SpecificationNext;
+            }
         }
 
         public void Test()
@@ -386,7 +409,7 @@ namespace Library
             AddComponentToSpecification(myComponent1.ComponentName, myComponent2.ComponentName);
             AddComponentToSpecification(myComponent1.ComponentName, myComponent4.ComponentName);
             AddComponentToComponentList(myComponent5);
-
+            AddComponentToSpecification(myComponent2.ComponentName, myComponent5.ComponentName);
         }
 
         public IEnumerable<MyComponent> GetAllComponents()
