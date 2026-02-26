@@ -246,14 +246,18 @@ namespace Library
             }
             else
             {
-                var tmp = comp.SpecificationRecord.SpecificationNext;
-                while (tmp != null)
+                int quantity = 1;
+                var tmp = comp.SpecificationRecord;
+                while (tmp.SpecificationNext != null)
                 {
+                    quantity++;
                     tmp = tmp.SpecificationNext;
                 }
 
-                comp.SpecificationRecord.SpecificationNextPtr = spec.GetHashCode();
-                comp.SpecificationRecord.SpecificationNext = spec;
+                if (quantity == comp.SpecificationRecord.Quantity)
+                    throw new Exception($"Лимит компонентов в спецификации = {comp.SpecificationRecord.Quantity}");
+                tmp.SpecificationNextPtr = spec.GetHashCode();
+                tmp.SpecificationNext = spec;
             }
 
             UpdateFiles();
@@ -323,6 +327,19 @@ namespace Library
 
             _compHeader.EnumerateRecords(action);
             _specHeader.EnumerateSpecRecords(action);
+        }
+
+        public void RestoreComponentWithSpecs(string componentName)
+        {
+            var comp = _compHeader.GetCompRecByName(componentName);
+            if (comp == null)
+                throw new Exception(_compNotFoundExc);
+
+            comp.EnumerateAllCompSpecs(rec =>
+            {
+                if (rec.IsDeleted)
+                    rec.IsDeleted = false;
+            });
         }
 
         public void Truncate()
@@ -462,10 +479,6 @@ namespace Library
             AddComponentToSpecification(myComponent1.ComponentName, myComponent2.ComponentName);
             AddComponentToSpecification(myComponent1.ComponentName, myComponent4.ComponentName);
             AddComponentToComponentList(myComponent5);
-            AddComponentToSpecification(myComponent2.ComponentName, myComponent5.ComponentName);
-
-            DeleteComponentInSpecification(myComponent2.ComponentName, myComponent5.ComponentName);
-            DeleteComponent(myComponent5.ComponentName);
         }
 
         public IEnumerable<MyComponent> GetAllComponents()
