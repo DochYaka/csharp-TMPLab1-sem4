@@ -16,8 +16,6 @@ namespace Task2
         private MyComponent? _selectedComponent;
         private TreeViewItem? _selectedTreeNode;
 
-        private MyComponent parentComponent;
-
         private TreeViewItem? _lastHighlightedItem;
 
         public SpecificationControl(FileManager fileManager)
@@ -164,6 +162,38 @@ namespace Task2
                 return;
             }
 
+            try
+            {
+                int currentCount = 0;
+
+                try
+                {
+                    var graph = _fileManager.GetCompWithSpecs(_selectedComponent.ComponentName);
+                    currentCount = graph.Specifications.Count;
+                }
+                catch (Exception ex) when (ex.Message.Contains("У детали нет спецификации") || ex.Message.Contains("Компонент не найден"))
+                {
+                    currentCount = 0;
+                }
+                catch
+                {
+                    currentCount = 0;
+                }
+
+                if (currentCount >= 2)
+                {
+                    MessageBox.Show($"Достигнут лимит спецификации для компонента '{_selectedComponent.ComponentName}' (максимум 2 компонента)",
+                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при проверке лимита: {ex.Message}", "Ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             var dialog = new Window
             {
                 Title = "Добавление компонента в спецификацию",
@@ -175,11 +205,11 @@ namespace Task2
 
             var stackPanel = new StackPanel { Margin = new Thickness(10) };
 
-            stackPanel.Children.Add(new TextBlock { Text = "Наименование компонента:"});
-            var nameTextBox = new TextBox {Padding = new Thickness(5) };
+            stackPanel.Children.Add(new TextBlock { Text = "Наименование компонента:" });
+            var nameTextBox = new TextBox { Padding = new Thickness(5) };
             stackPanel.Children.Add(nameTextBox);
 
-            stackPanel.Children.Add(new TextBlock { Text = "Тип компонента:"});
+            stackPanel.Children.Add(new TextBlock { Text = "Тип компонента:" });
             var typeComboBox = new ComboBox
             {
                 Padding = new Thickness(5),
@@ -232,6 +262,28 @@ namespace Task2
 
                     var type = (ComponentType)typeComboBox.SelectedItem;
 
+                    try
+                    {
+                        int currentCount = 0;
+                        try
+                        {
+                            var graph = _fileManager.GetCompWithSpecs(_selectedComponent.ComponentName);
+                            currentCount = graph.Specifications.Count;
+                        }
+                        catch
+                        {
+                            currentCount = 0;
+                        }
+
+                        if (currentCount >= 2)
+                        {
+                            MessageBox.Show($"Достигнут лимит спецификации для компонента '{_selectedComponent.ComponentName}' (максимум 2 компонента)",
+                                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return;
+                        }
+                    }
+                    catch { }
+
                     var existingComponent = _fileManager.GetAllComponents()
                         .FirstOrDefault(c => c.ComponentName.Equals(name, StringComparison.OrdinalIgnoreCase));
 
@@ -251,25 +303,36 @@ namespace Task2
                                 return;
                             }
                         }
-                        catch { }
+                        catch
+                        {
+                        }
                     }
                     else
                     {
                         newComponent = new MyComponent(name, type);
-                        _fileManager.AddComponentToComponentList(newComponent);
                     }
 
-                    _fileManager.AddComponentToSpecification(_selectedComponent.ComponentName, newComponent.ComponentName);
+                    try
+                    {
+                        _fileManager.AddComponentToSpecification(_selectedComponent.ComponentName, newComponent.ComponentName);
 
-                    dialog.DialogResult = true;
-                    dialog.Close();
+                        if (existingComponent == null)
+                        {
+                            _fileManager.AddComponentToComponentList(newComponent);
+                        }
 
-                    BuildTree(SearchTextBox.Text);
+                        dialog.DialogResult = true;
+                        dialog.Close();
 
-                    MessageBox.Show($"Компонент '{name}' добавлен в спецификацию '{_selectedComponent.ComponentName}'",
-                        "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                        BuildTree(SearchTextBox.Text);
 
-                    DataChanged?.Invoke(this, EventArgs.Empty);
+                        DataChanged?.Invoke(this, EventArgs.Empty);
+                    }
+                    catch (Exception ex) when (ex.Message.Contains("Лимит компонентов в спецификации"))
+                    {
+                        MessageBox.Show($"Не удалось добавить компонент: {ex.Message}",
+                            "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
                 catch (Exception ex)
                 {

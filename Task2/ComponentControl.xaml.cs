@@ -73,7 +73,6 @@ namespace Task2
                 if (_selectedParent == null)
                 {
                     MyComponent newComponent = new(text, type);
-
                     _fileManager.AddComponentToComponentList(newComponent);
                     Components.Add(newComponent);
 
@@ -99,25 +98,97 @@ namespace Task2
                         return;
                     }
 
-                    MyComponent newComponent = new(text, type);
+                    try
+                    {
+                        var graph = _fileManager.GetCompWithSpecs(_selectedParent.ComponentName);
+                        int currentCount = graph.Specifications.Count;
 
-                    _fileManager.AddComponentToComponentList(newComponent);
-                    Components.Add(newComponent);
+                        if (currentCount >= 2)
+                        {
+                            MessageBox.Show($"Достигнут лимит спецификации для компонента '{_selectedParent.ComponentName}' (максимум 2 компонента)",
+                                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                    }
 
-                    _fileManager.AddComponentToSpecification(_selectedParent.ComponentName, newComponent.ComponentName);
+                    MyComponent? existingComponent = null;
+                    try
+                    {
+                        existingComponent = _fileManager.GetAllComponents()
+                            .FirstOrDefault(c => c.ComponentName.Equals(text, StringComparison.OrdinalIgnoreCase));
+                    }
+                    catch { }
 
-                    NameTextBox.Clear();
-                    TypeComboBox.SelectedItem = null;
+                    MyComponent newComponent;
 
-                    MessageBox.Show($"Компонент '{text}' создан и добавлен в спецификацию '{_selectedParent.ComponentName}'",
-                        "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (existingComponent != null)
+                    {
+                        newComponent = existingComponent;
+
+                        try
+                        {
+                            var graph = _fileManager.GetCompWithSpecs(_selectedParent.ComponentName);
+                            if (IsComponentInGraph(graph, newComponent.ComponentName))
+                            {
+                                MessageBox.Show($"Компонент '{text}' уже есть в спецификации!",
+                                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                return;
+                            }
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        newComponent = new MyComponent(text, type);
+                    }
+
+                    try
+                    {
+                        _fileManager.AddComponentToSpecification(_selectedParent.ComponentName, newComponent.ComponentName);
+
+                        if (existingComponent == null)
+                        {
+                            _fileManager.AddComponentToComponentList(newComponent);
+                            Components.Add(newComponent);
+                        }
+
+                        NameTextBox.Clear();
+                        TypeComboBox.SelectedItem = null;
+
+                        MessageBox.Show($"Компонент '{text}' добавлен в спецификацию '{_selectedParent.ComponentName}'",
+                            "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    catch (Exception ex) when (ex.Message.Contains("Лимит компонентов в спецификации"))
+                    {
+                        MessageBox.Show($"Не удалось добавить компонент: {ex.Message}",
+                            "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
+
+                DataChanged?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private bool IsComponentInGraph(ComponentsGraph graph, string componentName)
+        {
+            if (graph.Value.ComponentName == componentName)
+                return true;
+
+            foreach (var spec in graph.Specifications)
+            {
+                if (IsComponentInGraph(spec, componentName))
+                    return true;
+            }
+
+            return false;
         }
 
         private void Edit_Click(object sender, RoutedEventArgs e)
